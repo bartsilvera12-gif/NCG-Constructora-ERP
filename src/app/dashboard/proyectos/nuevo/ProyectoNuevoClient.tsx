@@ -20,14 +20,24 @@ type Tipo = { id: string; nombre: string; codigo: string };
 type Estado = { id: string; nombre: string };
 type Cliente = { id: string; empresa?: string | null; nombre_contacto?: string | null };
 type Usuario = { id: string; nombre?: string | null };
-type Empleado = { id: string; nombre: string; cargo?: string | null; activo?: boolean };
+type Empleado = {
+  id: string;
+  nombre: string;
+  cargo?: string | null;
+  activo?: boolean;
+  /** Tipos asignados desde la ficha del empleado (RRHH → Empleados). Reemplaza
+   *  a la tabla legacy asignaciones_tipo_empleado pero la mantenemos como
+   *  fallback hasta que todos los empleados tengan los tipos cargados acá. */
+  tipos_empleado?: string[] | null;
+};
 type Asignacion = { empleado_id: string | null; tipos: string[] | null; activo: boolean };
 
 /**
  * Slugs del catálogo de tipos que se consideran "comercial" o "técnico" para
  * filtrar los empleados en los selectores Resp. comercial / Resp. técnico.
  */
-const SLUGS_COMERCIAL = new Set(["vendedor", "cobrador", "comercial"]);
+// Cobrador queda fuera: pertenece a cobranzas, no al area comercial.
+const SLUGS_COMERCIAL = new Set(["vendedor", "comercial", "asesor"]);
 const SLUGS_TECNICO = new Set(["tecnico", "técnico"]);
 
 export default function ProyectoNuevoClient() {
@@ -92,26 +102,38 @@ export default function ProyectoNuevoClient() {
 
   const tipoCodigo = useMemo(() => tipos.find((t) => t.id === tipoId)?.codigo ?? "", [tipos, tipoId]);
 
-  /** Empleados activos elegibles para "Resp. comercial" / "Resp. técnico"
-   *  según los tipos que tengan asignados en /rrhh/tipos-empleado. */
+  /** Empleados activos elegibles para "Resp. comercial" / "Resp. técnico".
+   *  Fuente primaria: empleado.tipos_empleado (cargado en la ficha de RRHH).
+   *  Fallback: asignaciones_tipo_empleado (tabla legacy) hasta que todos los
+   *  empleados tengan los tipos en la ficha. */
   const empleadosComerciales = useMemo(() => {
-    const set = new Set(
+    const idsAsig = new Set(
       asignaciones
         .filter((a) => a.activo && (a.tipos ?? []).some((t) => SLUGS_COMERCIAL.has(t)))
         .map((a) => a.empleado_id)
         .filter((v): v is string => Boolean(v)),
     );
-    return empleados.filter((e) => set.has(e.id) && e.activo !== false);
+    return empleados.filter((e) => {
+      if (e.activo === false) return false;
+      const propios = e.tipos_empleado ?? [];
+      if (propios.some((t) => SLUGS_COMERCIAL.has(t))) return true;
+      return idsAsig.has(e.id);
+    });
   }, [empleados, asignaciones]);
 
   const empleadosTecnicos = useMemo(() => {
-    const set = new Set(
+    const idsAsig = new Set(
       asignaciones
         .filter((a) => a.activo && (a.tipos ?? []).some((t) => SLUGS_TECNICO.has(t)))
         .map((a) => a.empleado_id)
         .filter((v): v is string => Boolean(v)),
     );
-    return empleados.filter((e) => set.has(e.id) && e.activo !== false);
+    return empleados.filter((e) => {
+      if (e.activo === false) return false;
+      const propios = e.tipos_empleado ?? [];
+      if (propios.some((t) => SLUGS_TECNICO.has(t))) return true;
+      return idsAsig.has(e.id);
+    });
   }, [empleados, asignaciones]);
   const esWeb = tipoCodigo === "web";
   const esSaas = tipoCodigo === "saas";
@@ -333,7 +355,7 @@ export default function ProyectoNuevoClient() {
             </select>
             {empleadosComerciales.length === 0 && (
               <p className="mt-1 text-[11px] text-slate-400">
-                Asigná el tipo &quot;Vendedor&quot; o &quot;Cobrador&quot; en RRHH → Asignación de tipo de empleado.
+                Asigná el tipo &quot;Vendedor&quot; al empleado en su ficha (RRHH → Empleados → Tipo(s) de empleado).
               </p>
             )}
           </label>
@@ -357,7 +379,7 @@ export default function ProyectoNuevoClient() {
             </select>
             {empleadosTecnicos.length === 0 && (
               <p className="mt-1 text-[11px] text-slate-400">
-                Asigná el tipo &quot;Técnico&quot; en RRHH → Asignación de tipo de empleado.
+                Asigná el tipo &quot;Técnico&quot; al empleado en su ficha (RRHH → Empleados → Tipo(s) de empleado).
               </p>
             )}
           </label>
