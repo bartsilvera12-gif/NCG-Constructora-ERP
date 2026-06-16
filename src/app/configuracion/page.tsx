@@ -91,6 +91,16 @@ export default function ConfiguracionPage() {
           </li>
           <li>
             <SettingsModuleCard
+              title="Política de vacaciones"
+              subtitle="EMPRESA · RRHH"
+              description="Días anuales, tipo de cómputo (naturales/laborables), proporcional por ingreso, aprobación, arrastre. Alimenta los saldos del módulo Vacaciones."
+              icon={CalendarClock}
+              badge={editorBadge}
+              href="/configuracion/rrhh/vacaciones"
+            />
+          </li>
+          <li>
+            <SettingsModuleCard
               title="Tipos de cliente / servicio"
               subtitle="EMPRESA · CATÁLOGO"
               description="Editá las opciones del selector «Tipo de servicio» en los formularios de cliente (Cubierta metálica, Estructura ligera, Reforma, Mantenimiento, etc.). Podés agregar, renombrar o desactivar."

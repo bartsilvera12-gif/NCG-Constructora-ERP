@@ -3,11 +3,11 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 
-const ESTADOS = new Set(["pendiente", "aprobada", "rechazada"]);
+const ESTADOS = new Set(["pendiente", "aprobada", "rechazada", "cancelada"]);
 
 /**
  * PATCH /api/rrhh/vacaciones/[id]
- * Body: { estado: 'aprobada' | 'rechazada' | 'pendiente' }
+ * Body: { estado: 'aprobada' | 'rechazada' | 'pendiente' | 'cancelada' }
  */
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -20,9 +20,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const estado = String(body.estado ?? "").trim();
     if (!ESTADOS.has(estado)) return NextResponse.json(errorResponse("estado inválido"), { status: 400 });
 
+    const ahora = new Date().toISOString();
     const update: Record<string, unknown> = {
       estado,
-      aprobado_at: estado === "aprobada" ? new Date().toISOString() : null,
+      aprobado_at: estado === "aprobada" ? ahora : null,
+      cancelado_at: estado === "cancelada" ? ahora : null,
     };
 
     const { error } = await ctx.supabase

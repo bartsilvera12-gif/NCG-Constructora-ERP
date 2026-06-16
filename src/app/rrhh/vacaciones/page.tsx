@@ -1,12 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
 export const dynamic = "force-dynamic";
 
 type Empleado = { id: string; nombre: string; cargo: string | null };
+type Estado = "pendiente" | "aprobada" | "rechazada" | "cancelada";
+type Tipo = "vacaciones" | "permiso_retribuido" | "baja_medica" | "ausencia_sin_sueldo" | "otro";
+
 type Solicitud = {
   id: string;
   empleado_id: string;
@@ -15,44 +20,122 @@ type Solicitud = {
   fecha_desde: string;
   fecha_hasta: string;
   dias: number;
-  estado: "pendiente" | "aprobada" | "rechazada";
+  tipo_ausencia: Tipo | null;
+  estado: Estado;
   observacion: string | null;
-  aprobado_at: string | null;
+};
+
+type Saldo = {
+  empleado_id: string;
+  empleado_nombre: string;
+  cargo: string | null;
+  dias_anuales: number;
+  dias_generados: number;
+  dias_usados: number;
+  dias_pendientes_aprobacion: number;
+  dias_disponibles: number;
+  proxima_ausencia_desde: string | null;
+  proxima_ausencia_hasta: string | null;
+};
+
+type Kpis = {
+  empleados_de_vacaciones_hoy: number;
+  solicitudes_pendientes: number;
+  aprobadas_este_mes: number;
+  proximas_vacaciones: number;
+};
+
+const TIPO_LABEL: Record<Tipo, string> = {
+  vacaciones: "Vacaciones",
+  permiso_retribuido: "Permiso retribuido",
+  baja_medica: "Baja médica",
+  ausencia_sin_sueldo: "Ausencia sin sueldo",
+  otro: "Otro",
 };
 
 function fmtFecha(iso: string): string {
-  try { return new Date(iso).toLocaleDateString("es-PY"); } catch { return iso.slice(0, 10); }
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("es-ES");
 }
 
+function todayIso() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+const inputCls = "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-[#4FAEB2]/50 focus:ring-2 focus:ring-[#4FAEB2]/30";
+const lblCls = "block text-xs font-medium text-slate-600 mb-1";
+
 export default function VacacionesPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-slate-500">Cargando…</div>}>
+      <VacacionesInner />
+    </Suspense>
+  );
+}
+
+function VacacionesInner() {
+  const searchParams = useSearchParams();
+  const empleadoFiltro = searchParams?.get("empleadoId") ?? "";
+
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);
+  const [saldos, setSaldos] = useState<Saldo[]>([]);
+  const [kpis, setKpis] = useState<Kpis>({ empleados_de_vacaciones_hoy: 0, solicitudes_pendientes: 0, aprobadas_este_mes: 0, proximas_vacaciones: 0 });
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [tab, setTab] = useState<"lista" | "saldos">("lista");
+  const [previewDias, setPreviewDias] = useState<{ dias: number; tipo: string } | null>(null);
+
   const [form, setForm] = useState({
-    empleado_id: "",
-    fecha_desde: new Date().toISOString().slice(0, 10),
-    fecha_hasta: new Date().toISOString().slice(0, 10),
+    empleado_id: empleadoFiltro,
+    tipo_ausencia: "vacaciones" as Tipo,
+    fecha_desde: todayIso(),
+    fecha_hasta: todayIso(),
     observacion: "",
+    modo: "admin" as "admin" | "solicitud",
   });
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [rE, rS] = await Promise.all([
+      const empQs = empleadoFiltro ? `?empleadoId=${encodeURIComponent(empleadoFiltro)}` : "";
+      const [rE, rS, rB] = await Promise.all([
         fetchWithSupabaseSession("/api/rrhh/empleados", { cache: "no-store" }),
-        fetchWithSupabaseSession("/api/rrhh/vacaciones", { cache: "no-store" }),
+        fetchWithSupabaseSession(`/api/rrhh/vacaciones${empQs}`, { cache: "no-store" }),
+        fetchWithSupabaseSession("/api/rrhh/vacaciones/saldos", { cache: "no-store" }),
       ]);
       const jE = (await rE.json().catch(() => ({}))) as { success?: boolean; data?: { empleados?: Empleado[] } };
       const jS = (await rS.json().catch(() => ({}))) as { success?: boolean; data?: { solicitudes?: Solicitud[] }; error?: string };
+      const jB = (await rB.json().catch(() => ({}))) as { success?: boolean; data?: { saldos?: Saldo[]; kpis?: Kpis } };
       if (rE.ok && jE.success) setEmpleados(jE.data?.empleados ?? []);
       if (rS.ok && jS.success) { setSolicitudes(jS.data?.solicitudes ?? []); setErr(null); }
       else setErr(jS.error ?? "No se pudieron cargar las solicitudes");
+      if (rB.ok && jB.success) {
+        setSaldos(jB.data?.saldos ?? []);
+        setKpis(jB.data?.kpis ?? kpis);
+      }
     } finally { setLoading(false); }
-  }, []);
+  }, [empleadoFiltro]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { void load(); }, [load]);
+
+  // Preview de días en vivo.
+  useEffect(() => {
+    if (!form.fecha_desde || !form.fecha_hasta) { setPreviewDias(null); return; }
+    const ctrl = new AbortController();
+    fetchWithSupabaseSession(
+      `/api/rrhh/vacaciones/preview-dias?desde=${form.fecha_desde}&hasta=${form.fecha_hasta}`,
+      { cache: "no-store", signal: ctrl.signal },
+    )
+      .then((r) => r.json())
+      .then((j: { success?: boolean; data?: { dias?: number; tipo_computo?: string } }) => {
+        if (j?.success) setPreviewDias({ dias: j.data?.dias ?? 0, tipo: j.data?.tipo_computo ?? "naturales" });
+      })
+      .catch(() => { /* tolerante */ });
+    return () => ctrl.abort();
+  }, [form.fecha_desde, form.fecha_hasta]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -62,11 +145,18 @@ export default function VacacionesPage() {
       const r = await fetchWithSupabaseSession("/api/rrhh/vacaciones", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          empleado_id: form.empleado_id,
+          tipo_ausencia: form.tipo_ausencia,
+          fecha_desde: form.fecha_desde,
+          fecha_hasta: form.fecha_hasta,
+          observacion: form.observacion,
+          modo: form.modo,
+        }),
       });
       const j = (await r.json().catch(() => ({}))) as { success?: boolean; error?: string };
       if (r.ok && j.success) {
-        setForm({ ...form, empleado_id: "", observacion: "" });
+        setForm({ ...form, observacion: "" });
         await load();
       } else {
         setErr(j.error ?? "No se pudo guardar");
@@ -74,31 +164,51 @@ export default function VacacionesPage() {
     } finally { setSaving(false); }
   }
 
-  async function cambiarEstado(id: string, estado: "aprobada" | "rechazada") {
+  async function cambiarEstado(id: string, estado: Estado) {
     const r = await fetchWithSupabaseSession(`/api/rrhh/vacaciones/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ estado }),
     });
     const j = (await r.json().catch(() => ({}))) as { success?: boolean; error?: string };
-    if (!r.ok || !j.success) {
-      setErr(j.error ?? "No se pudo cambiar estado");
-      return;
-    }
+    if (!r.ok || !j.success) { setErr(j.error ?? "No se pudo cambiar estado"); return; }
     await load();
   }
+
+  const nombreFiltrado = empleadoFiltro ? empleados.find((e) => e.id === empleadoFiltro)?.nombre ?? null : null;
 
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="NCG · RRHH"
         title="Vacaciones"
-        description="Solicitudes y aprobaciones de vacaciones por empleado."
+        description="Solicitudes, aprobaciones, calendario y saldos por empleado."
         backHref="/rrhh"
         backLabel="RRHH"
+        actions={
+          <Link href="/configuracion/rrhh/vacaciones"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            Política
+          </Link>
+        }
       />
 
       {err && <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{err}</div>}
+
+      {/* KPIs */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Kpi label="De vacaciones hoy" value={kpis.empleados_de_vacaciones_hoy} />
+        <Kpi label="Pendientes de aprobar" value={kpis.solicitudes_pendientes} tone="amber" />
+        <Kpi label="Aprobadas este mes" value={kpis.aprobadas_este_mes} tone="emerald" />
+        <Kpi label="Próximas (futuro)" value={kpis.proximas_vacaciones} tone="sky" />
+      </div>
+
+      {nombreFiltrado && (
+        <div className="flex items-center gap-2 rounded-lg border border-[#4FAEB2]/30 bg-[#E5F4F4] px-3 py-2 text-xs">
+          <span className="font-medium text-[#3F8E91]">Filtro: {nombreFiltrado}</span>
+          <Link href="/rrhh/vacaciones" className="ml-auto text-[#3F8E91] underline">Quitar</Link>
+        </div>
+      )}
 
       {empleados.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
@@ -106,8 +216,8 @@ export default function VacacionesPage() {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="text-sm font-semibold text-slate-700">Nueva solicitud</h3>
-          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
+          <h3 className="text-sm font-semibold text-slate-700">Nueva solicitud / registro</h3>
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-6">
             <div className="md:col-span-2">
               <label className={lblCls}>Empleado</label>
               <select className={inputCls} value={form.empleado_id} required
@@ -115,6 +225,15 @@ export default function VacacionesPage() {
                 <option value="">Seleccionar…</option>
                 {empleados.map((e) => (
                   <option key={e.id} value={e.id}>{e.nombre}{e.cargo ? ` — ${e.cargo}` : ""}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={lblCls}>Tipo</label>
+              <select className={inputCls} value={form.tipo_ausencia}
+                onChange={(e) => setForm({ ...form, tipo_ausencia: e.target.value as Tipo })}>
+                {(Object.keys(TIPO_LABEL) as Tipo[]).map((t) => (
+                  <option key={t} value={t}>{TIPO_LABEL[t]}</option>
                 ))}
               </select>
             </div>
@@ -128,6 +247,14 @@ export default function VacacionesPage() {
               <input type="date" className={inputCls} value={form.fecha_hasta} min={form.fecha_desde}
                 onChange={(e) => setForm({ ...form, fecha_hasta: e.target.value })} />
             </div>
+            <div>
+              <label className={lblCls}>Modo</label>
+              <select className={inputCls} value={form.modo}
+                onChange={(e) => setForm({ ...form, modo: e.target.value === "solicitud" ? "solicitud" : "admin" })}>
+                <option value="admin">Admin · registrar aprobada</option>
+                <option value="solicitud">Solicitud · queda pendiente</option>
+              </select>
+            </div>
           </div>
           <div className="mt-3">
             <label className={lblCls}>Observación</label>
@@ -135,74 +262,151 @@ export default function VacacionesPage() {
               placeholder="Ej. Vacaciones anuales, motivo personal"
               onChange={(e) => setForm({ ...form, observacion: e.target.value })} />
           </div>
-          <div className="mt-3 flex justify-end">
+          <div className="mt-3 flex items-center justify-between flex-wrap gap-3">
+            {previewDias && previewDias.dias > 0 && (
+              <span className="text-xs text-slate-600">
+                Días calculados: <strong>{previewDias.dias}</strong> {previewDias.tipo === "laborables" ? "laborables" : "naturales"}
+              </span>
+            )}
             <button type="submit" disabled={saving}
-              className="rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
-              {saving ? "Guardando…" : "Solicitar"}
+              className="rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-medium text-white disabled:opacity-50 ml-auto">
+              {saving ? "Guardando…" : form.modo === "admin" ? "Registrar (aprobada)" : "Crear solicitud (pendiente)"}
             </button>
           </div>
         </form>
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="w-full min-w-[820px] text-left text-sm">
-          <thead className="bg-slate-50 text-slate-600">
-            <tr>
-              <th className="px-4 py-3 font-semibold">Empleado</th>
-              <th className="px-4 py-3 font-semibold hidden md:table-cell">Cargo</th>
-              <th className="px-4 py-3 font-semibold">Desde</th>
-              <th className="px-4 py-3 font-semibold">Hasta</th>
-              <th className="px-4 py-3 font-semibold text-right">Días</th>
-              <th className="px-4 py-3 font-semibold">Estado</th>
-              <th className="px-4 py-3 font-semibold text-right">Acción</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {loading ? (
-              <tr><td colSpan={7} className="py-10 text-center text-gray-400">Cargando…</td></tr>
-            ) : solicitudes.length === 0 ? (
-              <tr><td colSpan={7} className="py-10 text-center text-gray-400">Sin solicitudes</td></tr>
-            ) : (
-              solicitudes.map((s) => (
-                <tr key={s.id} className="hover:bg-[#4FAEB2]/[0.04]">
-                  <td className="px-4 py-2.5 font-medium text-gray-800">{s.empleado_nombre ?? "—"}</td>
-                  <td className="px-4 py-2.5 text-gray-500 hidden md:table-cell">{s.empleado_cargo ?? "—"}</td>
-                  <td className="px-4 py-2.5 text-gray-600 text-xs tabular-nums">{fmtFecha(s.fecha_desde)}</td>
-                  <td className="px-4 py-2.5 text-gray-600 text-xs tabular-nums">{fmtFecha(s.fecha_hasta)}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-800">{s.dias}</td>
-                  <td className="px-4 py-2.5"><EstadoBadge estado={s.estado} /></td>
-                  <td className="px-4 py-2.5 text-right">
-                    {s.estado === "pendiente" ? (
-                      <div className="flex justify-end gap-2">
-                        <button onClick={() => void cambiarEstado(s.id, "aprobada")}
-                          className="text-xs text-emerald-700 hover:underline">aprobar</button>
-                        <button onClick={() => void cambiarEstado(s.id, "rechazada")}
-                          className="text-xs text-red-700 hover:underline">rechazar</button>
-                      </div>
-                    ) : <span className="text-xs text-slate-400">—</span>}
+      {/* Tabs */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-1">
+        {(["lista", "saldos"] as const).map((t) => (
+          <button key={t} type="button" onClick={() => setTab(t)}
+            className={`relative -mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+              tab === t ? "border-[#4FAEB2] text-[#3F8E91]" : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}>
+            {t === "lista" ? "Listado de solicitudes" : "Saldos por empleado"}
+          </button>
+        ))}
+      </div>
+
+      {tab === "lista" ? (
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <table className="w-full min-w-[920px] text-left text-sm">
+            <thead className="bg-slate-50 text-slate-600">
+              <tr>
+                <th className="px-4 py-3 font-semibold">Empleado</th>
+                <th className="px-4 py-3 font-semibold hidden md:table-cell">Tipo</th>
+                <th className="px-4 py-3 font-semibold">Desde</th>
+                <th className="px-4 py-3 font-semibold">Hasta</th>
+                <th className="px-4 py-3 font-semibold text-right">Días</th>
+                <th className="px-4 py-3 font-semibold">Estado</th>
+                <th className="px-4 py-3 font-semibold text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading ? (
+                <tr><td colSpan={7} className="py-10 text-center text-gray-400">Cargando…</td></tr>
+              ) : solicitudes.length === 0 ? (
+                <tr><td colSpan={7} className="py-10 text-center text-gray-400">Sin solicitudes</td></tr>
+              ) : (
+                solicitudes.map((s) => (
+                  <tr key={s.id} className="hover:bg-[#4FAEB2]/[0.04]">
+                    <td className="px-4 py-2.5 font-medium text-gray-800">
+                      {s.empleado_nombre ?? "—"}
+                      {s.empleado_cargo && <span className="block text-[10px] text-slate-400">{s.empleado_cargo}</span>}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-gray-600 hidden md:table-cell">{TIPO_LABEL[(s.tipo_ausencia ?? "vacaciones") as Tipo]}</td>
+                    <td className="px-4 py-2.5 text-gray-600 text-xs tabular-nums">{fmtFecha(s.fecha_desde)}</td>
+                    <td className="px-4 py-2.5 text-gray-600 text-xs tabular-nums">{fmtFecha(s.fecha_hasta)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-800">{s.dias}</td>
+                    <td className="px-4 py-2.5"><EstadoBadge estado={s.estado} /></td>
+                    <td className="px-4 py-2.5 text-right">
+                      {s.estado === "pendiente" ? (
+                        <div className="flex justify-end gap-2">
+                          <button onClick={() => void cambiarEstado(s.id, "aprobada")}
+                            className="text-xs text-emerald-700 hover:underline">aprobar</button>
+                          <button onClick={() => void cambiarEstado(s.id, "rechazada")}
+                            className="text-xs text-red-700 hover:underline">rechazar</button>
+                        </div>
+                      ) : s.estado === "aprobada" ? (
+                        <button onClick={() => void cambiarEstado(s.id, "cancelada")}
+                          className="text-xs text-red-700 hover:underline">cancelar</button>
+                      ) : <span className="text-xs text-slate-400">—</span>}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <table className="w-full min-w-[820px] text-left text-sm">
+            <thead className="bg-slate-50 text-slate-600">
+              <tr>
+                <th className="px-4 py-3 font-semibold">Empleado</th>
+                <th className="px-4 py-3 font-semibold text-right">Anuales</th>
+                <th className="px-4 py-3 font-semibold text-right">Generados</th>
+                <th className="px-4 py-3 font-semibold text-right">Usados</th>
+                <th className="px-4 py-3 font-semibold text-right">Pend. aprobación</th>
+                <th className="px-4 py-3 font-semibold text-right">Disponibles</th>
+                <th className="px-4 py-3 font-semibold hidden md:table-cell">Próxima ausencia</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {saldos.length === 0 ? (
+                <tr><td colSpan={7} className="py-10 text-center text-gray-400">Sin empleados activos</td></tr>
+              ) : saldos.map((s) => (
+                <tr key={s.empleado_id} className="hover:bg-[#4FAEB2]/[0.04]">
+                  <td className="px-4 py-2.5 font-medium text-gray-800">
+                    {s.empleado_nombre}
+                    {s.cargo && <span className="block text-[10px] text-slate-400">{s.cargo}</span>}
+                  </td>
+                  <td className="px-4 py-2.5 text-right tabular-nums">{s.dias_anuales}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">{s.dias_generados}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">{s.dias_usados}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-amber-700">{s.dias_pendientes_aprobacion}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-emerald-700">{s.dias_disponibles}</td>
+                  <td className="px-4 py-2.5 text-xs text-gray-600 hidden md:table-cell">
+                    {s.proxima_ausencia_desde
+                      ? `${fmtFecha(s.proxima_ausencia_desde)} → ${fmtFecha(s.proxima_ausencia_hasta!)}`
+                      : <span className="text-gray-300">—</span>}
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
 
-function EstadoBadge({ estado }: { estado: "pendiente" | "aprobada" | "rechazada" }) {
-  const cfg = {
+function EstadoBadge({ estado }: { estado: Estado }) {
+  const cfg: Record<Estado, { bg: string; text: string; label: string }> = {
     pendiente: { bg: "bg-amber-50",   text: "text-amber-700",   label: "Pendiente" },
     aprobada:  { bg: "bg-emerald-50", text: "text-emerald-700", label: "Aprobada" },
     rechazada: { bg: "bg-red-50",     text: "text-red-700",     label: "Rechazada" },
-  }[estado];
+    cancelada: { bg: "bg-slate-100",  text: "text-slate-600",   label: "Cancelada" },
+  };
+  const c = cfg[estado];
   return (
-    <span className={`rounded-full ${cfg.bg} px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${cfg.text}`}>
-      {cfg.label}
+    <span className={`rounded-full ${c.bg} px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${c.text}`}>
+      {c.label}
     </span>
   );
 }
 
-const inputCls = "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-[#4FAEB2]/50 focus:ring-2 focus:ring-[#4FAEB2]/30";
-const lblCls = "block text-xs font-medium text-slate-600 mb-1";
+function Kpi({ label, value, tone = "indigo" }: { label: string; value: number; tone?: "indigo" | "amber" | "emerald" | "sky" }) {
+  const cls = {
+    indigo:  "border-indigo-200 bg-indigo-50 text-indigo-800",
+    amber:   "border-amber-200 bg-amber-50 text-amber-800",
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    sky:     "border-sky-200 bg-sky-50 text-sky-800",
+  }[tone];
+  return (
+    <div className={`rounded-xl border ${cls} px-4 py-3`}>
+      <p className="text-[10px] font-semibold uppercase tracking-wider opacity-70">{label}</p>
+      <p className="mt-1 text-2xl font-bold tabular-nums">{value}</p>
+    </div>
+  );
+}

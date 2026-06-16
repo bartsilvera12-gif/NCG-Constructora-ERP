@@ -109,6 +109,8 @@ export default function EmpleadosPage() {
   const [saving, setSaving] = useState(false);
   const [editando, setEditando] = useState<Empleado | null>(null);
   const [verInactivos, setVerInactivos] = useState(false);
+  // Días disponibles de vacaciones por empleado, para la columna del listado.
+  const [vacDisponibles, setVacDisponibles] = useState<Map<string, number>>(new Map());
 
   const [form, setForm] = useState(FORM_INICIAL);
 
@@ -135,6 +137,20 @@ export default function EmpleadosPage() {
   }
 
   useEffect(() => { void load(); }, []);
+
+  // Saldos de vacaciones para la columna del listado. Best-effort:
+  // si el módulo todavía no está configurado, la columna queda en "—".
+  useEffect(() => {
+    fetchWithSupabaseSession("/api/rrhh/vacaciones/saldos", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j: { success?: boolean; data?: { saldos?: Array<{ empleado_id: string; dias_disponibles: number }> } }) => {
+        if (!j?.success) return;
+        const m = new Map<string, number>();
+        for (const s of j.data?.saldos ?? []) m.set(s.empleado_id, s.dias_disponibles);
+        setVacDisponibles(m);
+      })
+      .catch(() => { /* tolerante */ });
+  }, []);
 
   async function toggleActivo(emp: Empleado) {
     const r = await fetchWithSupabaseSession(`/api/rrhh/empleados/${emp.id}`, {
@@ -252,6 +268,7 @@ export default function EmpleadosPage() {
               <th className="px-5 py-3 font-semibold text-right">Salario base</th>
               <th className="px-5 py-3 font-semibold text-right hidden md:table-cell">Complementario</th>
               <th className="px-5 py-3 font-semibold text-right">Salario total</th>
+              <th className="px-5 py-3 font-semibold text-right hidden lg:table-cell" title="Días disponibles de vacaciones">Vac.</th>
               <th className="px-5 py-3 font-semibold">Estado</th>
               <th className="px-5 py-3 font-semibold text-right">Acciones</th>
             </tr>
@@ -272,6 +289,18 @@ export default function EmpleadosPage() {
                   <td className="px-5 py-3.5 text-right tabular-nums text-gray-700">{fmtGs(e.salario_base)}</td>
                   <td className="px-5 py-3.5 text-right tabular-nums text-gray-500 hidden md:table-cell">{fmtGs(e.salario_complementario ?? 0)}</td>
                   <td className="px-5 py-3.5 text-right tabular-nums font-semibold text-gray-900">{fmtGs(e.salario_base + (e.salario_complementario ?? 0))}</td>
+                  <td className="px-5 py-3.5 text-right hidden lg:table-cell">
+                    {(() => {
+                      const d = vacDisponibles.get(e.id);
+                      if (d == null) return <span className="text-slate-300 text-xs">—</span>;
+                      const tone = d <= 0 ? "bg-slate-100 text-slate-600" : d < 5 ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700";
+                      return (
+                        <Link href={`/rrhh/vacaciones?empleadoId=${e.id}`} className={`rounded-full ${tone} px-2 py-0.5 text-xs font-medium tabular-nums hover:underline`}>
+                          {d} d
+                        </Link>
+                      );
+                    })()}
+                  </td>
                   <td className="px-5 py-3.5">
                     {e.activo ? (
                       <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Activo</span>
@@ -424,6 +453,7 @@ function EditarEmpleadoModal({
         </div>
         <form onSubmit={handleSubmit} className="space-y-6 p-5">
           {err && <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{err}</div>}
+          <ResumenVacacionesEmpleado empleadoId={empleado.id} />
           <EmpleadoFormFields form={form} setForm={setForm} editMode supervisores={supervisores} />
           <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
             <button type="button" onClick={onClose}
@@ -977,6 +1007,82 @@ function ComisionesSection({
             </div>
           </>
         )}
+      </div>
+    </section>
+  );
+}
+
+// ── Resumen mini de vacaciones para el modal de edición ─────────────────────
+function ResumenVacacionesEmpleado({ empleadoId }: { empleadoId: string }) {
+  const [saldo, setSaldo] = useState<{
+    anuales: number; generados: number; usados: number; disponibles: number;
+    pendApr: number; proxDesde: string | null; proxHasta: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    fetchWithSupabaseSession("/api/rrhh/vacaciones/saldos", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j: { success?: boolean; data?: { saldos?: Array<{
+        empleado_id: string; dias_anuales: number; dias_generados: number; dias_usados: number;
+        dias_pendientes_aprobacion: number; dias_disponibles: number;
+        proxima_ausencia_desde: string | null; proxima_ausencia_hasta: string | null;
+      }> } }) => {
+        if (!j?.success) return;
+        const s = (j.data?.saldos ?? []).find((x) => x.empleado_id === empleadoId);
+        if (s) setSaldo({
+          anuales: s.dias_anuales,
+          generados: s.dias_generados,
+          usados: s.dias_usados,
+          disponibles: s.dias_disponibles,
+          pendApr: s.dias_pendientes_aprobacion,
+          proxDesde: s.proxima_ausencia_desde,
+          proxHasta: s.proxima_ausencia_hasta,
+        });
+      })
+      .catch(() => { /* tolerante */ });
+  }, [empleadoId]);
+
+  if (!saldo) return null;
+  const fmt = (iso: string) => new Date(iso).toLocaleDateString("es-ES");
+
+  return (
+    <section>
+      <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Vacaciones</h3>
+      <div className="rounded-xl border border-slate-200 bg-[#E5F4F4]/30 p-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 text-xs">
+          <div>
+            <p className="text-slate-500">Anuales</p>
+            <p className="text-base font-bold text-slate-900">{saldo.anuales}</p>
+          </div>
+          <div>
+            <p className="text-slate-500">Generados</p>
+            <p className="text-base font-bold text-slate-900">{saldo.generados}</p>
+          </div>
+          <div>
+            <p className="text-slate-500">Usados</p>
+            <p className="text-base font-bold text-slate-900">{saldo.usados}</p>
+          </div>
+          <div>
+            <p className="text-slate-500">Disponibles</p>
+            <p className="text-base font-bold text-emerald-700">{saldo.disponibles}</p>
+          </div>
+        </div>
+        {saldo.proxDesde && (
+          <p className="mt-3 text-xs text-slate-700">
+            Próxima ausencia aprobada: <strong>{fmt(saldo.proxDesde)} → {fmt(saldo.proxHasta!)}</strong>
+          </p>
+        )}
+        {saldo.pendApr > 0 && (
+          <p className="mt-1 text-xs text-amber-700">
+            {saldo.pendApr} día{saldo.pendApr === 1 ? "" : "s"} pendiente{saldo.pendApr === 1 ? "" : "s"} de aprobación.
+          </p>
+        )}
+        <div className="mt-3">
+          <Link href={`/rrhh/vacaciones?empleadoId=${empleadoId}`}
+            className="inline-flex items-center rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#3F8E91]">
+            Ver en Vacaciones
+          </Link>
+        </div>
       </div>
     </section>
   );
