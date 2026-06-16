@@ -10,7 +10,7 @@ import { getModuleAccessCached } from "@/lib/modulos/module-access-cache";
 import { isBootstrapSuperAdminEmail } from "@/lib/auth/super-admin-bootstrap-email";
 import {
   firstAccessibleHref,
-  isModuleSlugGranted,
+  isRouteSlugAccessible,
   pathRequiresModuleSlug,
 } from "@/lib/modulos/route-slug-map";
 
@@ -132,7 +132,7 @@ function AuthGuardInner({ children }: { children: React.ReactNode }) {
     if (
       slug &&
       !access.superAdmin &&
-      !isModuleSlugGranted(slug, access.slugs, access.inactiveSlugs, { strict: access.strict })
+      !isRouteSlugAccessible(slug, access.slugs, access.inactiveSlugs, { strict: access.strict })
     ) {
       setBlockedSlug(slug);
       return;

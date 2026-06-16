@@ -88,6 +88,13 @@ export function isModuleSlugGranted(
  * - `strict` opcional: ver `isModuleSlugGranted`. Permite ocultar items que no estén explícitamente
  *   activos en `empresa_modulos`, ignorando aliases legacy.
  */
+/**
+ * Slugs siempre habilitados en este snapshot dedicado a NCG (monocliente).
+ * Si en algún momento se vuelve multi-tenant y los módulos se compran por
+ * separado, mover estos slugs a `empresa_modulos` y quitar este set.
+ */
+const ALWAYS_ON_SLUGS = new Set<string>(["comisiones"]);
+
 export function canAccessSidebarSlug(
   slug: string,
   grantedSlugs: Set<string>,
@@ -96,7 +103,19 @@ export function canAccessSidebarSlug(
   opts?: { strict?: boolean }
 ): boolean {
   if (esSuperAdmin) return true;
+  if (ALWAYS_ON_SLUGS.has(slug)) return true;
   if (slug === "dashboard") return grantedSlugs.has("dashboard");
+  return isModuleSlugGranted(slug, grantedSlugs, inactiveSlugs, opts);
+}
+
+/** Wrapper para AuthGuard: respeta ALWAYS_ON_SLUGS además del granted check. */
+export function isRouteSlugAccessible(
+  slug: string,
+  grantedSlugs: Set<string>,
+  inactiveSlugs?: Set<string>,
+  opts?: { strict?: boolean }
+): boolean {
+  if (ALWAYS_ON_SLUGS.has(slug)) return true;
   return isModuleSlugGranted(slug, grantedSlugs, inactiveSlugs, opts);
 }
 
