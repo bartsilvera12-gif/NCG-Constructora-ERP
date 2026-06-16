@@ -6,6 +6,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import RentabilidadObra from "./RentabilidadObra";
 import PersonalObra from "./PersonalObra";
+import PresupuestoObra from "./PresupuestoObra";
+import MaterialesObra from "./MaterialesObra";
 import {
   ProyectoModuloSelector,
   type ProyectoModuloCatalogo as ModuloCatalogo,
@@ -44,12 +46,14 @@ export type DetalleResp = {
 
 type UsuarioActivo = { id: string; nombre?: string | null; email?: string | null };
 
-const TAB_IDS = ["resumen", "datos", "personal", "rentabilidad", "tareas", "comentarios", "archivos", "historial"] as const;
+const TAB_IDS = ["resumen", "datos", "presupuesto", "materiales", "personal", "rentabilidad", "tareas", "comentarios", "archivos", "historial"] as const;
 export type TabId = (typeof TAB_IDS)[number];
 
 const TAB_LABELS: Record<TabId, string> = {
   resumen: "Resumen",
   datos: "Datos",
+  presupuesto: "Presupuesto",
+  materiales: "Materiales",
   personal: "Personal",
   rentabilidad: "Rentabilidad",
   tareas: "Tareas",
@@ -407,12 +411,25 @@ export default function ProyectoDetalleInner({
           </h1>
           <p className="text-sm text-slate-500">
             {(proyecto as { proyecto_tipo?: { nombre?: string } }).proyecto_tipo?.nombre ?? "—"}
-            {esPedido
+            {esPedido && !esObra
               ? montoVendido != null
                 ? ` · ${formatMontoPyg(montoVendido)}`
                 : ""
               : ` · Avance ${data.avance_pct ?? "—"}%`}
           </p>
+          {/* Chip "Presupuesto origen" cuando la obra fue creada desde un presupuesto. */}
+          {(() => {
+            const p = proyecto as { presupuesto_origen_id?: string | null; presupuesto_origen_numero?: string | null };
+            const num = p.presupuesto_origen_numero;
+            if (!num) return null;
+            return (
+              <p className="mt-1 text-xs">
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#4FAEB2]/30 bg-[#E5F4F4] px-2 py-0.5 text-[10px] font-medium text-[#3F8E91]">
+                  Presupuesto origen: {num}
+                </span>
+              </p>
+            );
+          })()}
         </div>
         <div className="flex flex-wrap gap-2">
           <select
@@ -449,7 +466,12 @@ export default function ProyectoDetalleInner({
       {err ? <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">{err}</div> : null}
 
       <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
-        {TAB_IDS.map((t) => (
+        {TAB_IDS.filter((t) => {
+          // Tabs "Presupuesto" y "Materiales" son específicas de Obras NCG.
+          // No tiene sentido mostrarlas en proyectos web/SaaS/pedidos.
+          if (t === "presupuesto" || t === "materiales") return esObra;
+          return true;
+        }).map((t) => (
           <button
             key={t}
             type="button"
@@ -875,6 +897,14 @@ export default function ProyectoDetalleInner({
               </p>
             ) : null}
           </div>
+        ) : null}
+
+        {tab === "presupuesto" ? (
+          <PresupuestoObra brief={proyecto?.brief_data as Record<string, unknown> | null | undefined} />
+        ) : null}
+
+        {tab === "materiales" ? (
+          <MaterialesObra projectId={projectId} />
         ) : null}
 
         {tab === "personal" ? (
