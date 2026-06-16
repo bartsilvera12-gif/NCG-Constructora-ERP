@@ -84,15 +84,7 @@ export default function NuevaVentaPage() {
   const [errorVenta, setErrorVenta] = useState<string | null>(null);
 
   // ── Datos de la obra (solo presupuesto) ──────────────────────────────────
-  const [obraMeta, setObraMeta] = useState<ObraMeta>({
-    titulo_obra: "",
-    tipo_obra_id: "",
-    ubicacion: "",
-    superficie_m2: "",
-    descripcion: "",
-    validez_dias: "15",
-    condiciones: "",
-  });
+  const [obraMeta, setObraMeta] = useState<ObraMeta>(INITIAL_OBRA_META);
   // Modal de partida manual (solo presupuesto)
   const [partidaManualOpen, setPartidaManualOpen] = useState(false);
 
@@ -183,7 +175,13 @@ export default function NuevaVentaPage() {
     if (modalidad === "delivery") return pedidoClienteTelefono.trim().length > 0 && pedidoDireccion.trim().length > 0;
     return true; // local + carry_out: todos opcionales
   })();
-  const presupuestoValido = !esPresupuesto || (obraMeta.titulo_obra.trim().length > 0);
+  const presupuestoValido =
+    !esPresupuesto ||
+    (
+      obraMeta.cliente_contacto.trim().length > 0 &&
+      obraMeta.titulo_obra.trim().length > 0 &&
+      obraMeta.descripcion.trim().length > 0
+    );
   const ventaValida   = items.length > 0 && pedidoValido && presupuestoValido;
 
   // Vuelto (solo informativo, no se persiste)
@@ -225,14 +223,58 @@ export default function NuevaVentaPage() {
    * corresponda (página para efectivo, popup para transferencia/tarjeta).
    */
   async function guardarVenta(pagoDetalle: PagoDetalleVenta | null) {
+    // Margen / beneficio: si está activado, agregamos una partida virtual al
+    // payload (tipo 'otro') con el monto calculado sobre subtotal de partidas.
+    // Así el server y el listado lo ven como una línea más; no requiere cambios
+    // en la lógica de cálculo de totales.
+    let itemsFinal = items;
+    let subtotalFinal = totalSubtotal;
+    let ivaFinal = totalIva;
+    let totalFinal = totalGeneral;
+    if (esPresupuesto && obraMeta.incluir_margen) {
+      const ivaMargenTasa = 0.21; // IVA estándar del margen comercial.
+      const baseMargen = obraMeta.tipo_margen === "porcentaje"
+        ? (parseImporte(obraMeta.margen_pct) / 100) * totalSubtotal
+        : parseImporte(obraMeta.margen_monto);
+      const margenSinIva = Math.max(0, Math.round(baseMargen * 100) / 100);
+      if (margenSinIva > 0) {
+        const margenIva = Math.round(margenSinIva * ivaMargenTasa * 100) / 100;
+        const margenTotal = margenSinIva + margenIva;
+        const etiqueta = obraMeta.tipo_margen === "porcentaje"
+          ? `Margen comercial (${parseImporte(obraMeta.margen_pct) || 0}%)`
+          : "Margen comercial";
+        itemsFinal = [
+          ...items,
+          {
+            producto_id: "",
+            producto_nombre: etiqueta,
+            sku: "MARGEN",
+            cantidad: 1,
+            precio_venta_original: margenSinIva,
+            precio_venta: margenSinIva,
+            tipo_iva: "21%",
+            tipo_precio: "minorista",
+            subtotal: margenSinIva,
+            monto_iva: margenIva,
+            total_linea: margenTotal,
+            tipo_partida: "otro",
+            descripcion: etiqueta,
+          },
+        ];
+        subtotalFinal = totalSubtotal + margenSinIva;
+        ivaFinal = totalIva + margenIva;
+        totalFinal = totalGeneral + margenTotal;
+      }
+    }
+
     const resultado = await saveVenta(
       {
-        items,
+        items:        itemsFinal,
         moneda,
         tipo_cambio:  tipoCambioNum,
-        subtotal:     totalSubtotal,
-        monto_iva:    totalIva,
-        total:        totalGeneral,
+        subtotal:     subtotalFinal,
+        monto_iva:    ivaFinal,
+        total:        totalFinal,
         tipo_venta:   tipoVenta,
         metodo_pago:  metodoPago,
       },
@@ -326,7 +368,7 @@ export default function NuevaVentaPage() {
                   onClick={() => setPartidaManualOpen(true)}
                   className="shrink-0 inline-flex items-center gap-1.5 bg-white border border-[#0EA5E9] text-[#0EA5E9] hover:bg-sky-50 px-3 py-2 rounded-lg text-sm font-medium transition-colors active:scale-95"
                 >
-                  + Partida manual
+                  + Agregar concepto
                 </button>
               )}
               <button
@@ -428,20 +470,58 @@ export default function NuevaVentaPage() {
               <div className="mt-5 flex justify-end">
                 <div className="w-full md:w-80 space-y-3">
                   <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs text-gray-500">
-                      <span>Subtotal sin IVA</span>
-                      <span className="tabular-nums">{formatGs(totalSubtotal)}</span>
-                    </div>
-                    <div className="flex justify-between text-xs text-gray-500">
-                      <span>IVA repercutido</span>
-                      <span className="tabular-nums">
-                        {totalIva > 0 ? formatGs(totalIva) : "—"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-200">
-                      <span>TOTAL con IVA</span>
-                      <span className="tabular-nums">{formatGs(totalGeneral)}</span>
-                    </div>
+                    {esPresupuesto && obraMeta.incluir_margen && (() => {
+                      const baseMargen = obraMeta.tipo_margen === "porcentaje"
+                        ? (parseImporte(obraMeta.margen_pct) / 100) * totalSubtotal
+                        : parseImporte(obraMeta.margen_monto);
+                      const margenSinIva = Math.max(0, baseMargen);
+                      const margenIva = margenSinIva * 0.21;
+                      const subtotalConMargen = totalSubtotal + margenSinIva;
+                      const ivaConMargen = totalIva + margenIva;
+                      const totalConMargen = totalGeneral + margenSinIva + margenIva;
+                      return (
+                        <>
+                          <div className="flex justify-between text-xs text-gray-500">
+                            <span>Costo de partidas s/IVA</span>
+                            <span className="tabular-nums">{formatGs(totalSubtotal)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-emerald-700">
+                            <span>Margen / beneficio {obraMeta.tipo_margen === "porcentaje" ? `(${obraMeta.margen_pct || 0}%)` : ""}</span>
+                            <span className="tabular-nums">{formatGs(margenSinIva)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-gray-500 pt-1 border-t border-gray-100">
+                            <span>Subtotal sin IVA</span>
+                            <span className="tabular-nums">{formatGs(subtotalConMargen)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-gray-500">
+                            <span>IVA repercutido</span>
+                            <span className="tabular-nums">{ivaConMargen > 0 ? formatGs(ivaConMargen) : "—"}</span>
+                          </div>
+                          <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-200">
+                            <span>{esPresupuesto ? "TOTAL presupuestado" : "TOTAL con IVA"}</span>
+                            <span className="tabular-nums">{formatGs(totalConMargen)}</span>
+                          </div>
+                        </>
+                      );
+                    })()}
+                    {!(esPresupuesto && obraMeta.incluir_margen) && (
+                      <>
+                        <div className="flex justify-between text-xs text-gray-500">
+                          <span>Subtotal sin IVA</span>
+                          <span className="tabular-nums">{formatGs(totalSubtotal)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-500">
+                          <span>IVA repercutido</span>
+                          <span className="tabular-nums">
+                            {totalIva > 0 ? formatGs(totalIva) : "—"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-200">
+                          <span>{esPresupuesto ? "TOTAL presupuestado" : "TOTAL con IVA"}</span>
+                          <span className="tabular-nums">{formatGs(totalGeneral)}</span>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {tipoVenta === "CONTADO" && !esPresupuesto && (
@@ -728,25 +808,143 @@ export default function NuevaVentaPage() {
 // ── Datos de la obra (sección del presupuesto) ─────────────────────────────
 
 type ObraMeta = {
+  // Cliente / contacto
+  cliente_contacto: string;
+  cliente_telefono: string;
+  cliente_email: string;
+  cliente_zona: string;
+  // Obra
   titulo_obra: string;
   tipo_obra_id: string;
   ubicacion: string;
   superficie_m2: string;
+  unidad_principal: string; // "m2" | "ml" | "u"
   descripcion: string;
+  observaciones_tecnicas: string;
+  fecha_inicio_estimada: string;
   validez_dias: string;
+  // Tipo de servicio (catálogo NCG)
+  tipo_servicio: string;
+  // Margen / beneficio (opcional)
+  incluir_margen: boolean;
+  tipo_margen: "porcentaje" | "monto";
+  margen_pct: string;
+  margen_monto: string;
+  mostrar_margen_cliente: boolean;
+  // Garantía y condiciones
+  garantia_mano_obra: string;
+  garantia_materiales: string;
+  condiciones_servicio: string;
+  exclusiones: string;
+  forma_pago: string;
+  plazo_estimado: string;
+  // Observación libre (legacy)
   condiciones: string;
 };
 
+const INITIAL_OBRA_META: ObraMeta = {
+  cliente_contacto: "",
+  cliente_telefono: "",
+  cliente_email: "",
+  cliente_zona: "",
+  titulo_obra: "",
+  tipo_obra_id: "",
+  ubicacion: "",
+  superficie_m2: "",
+  unidad_principal: "m2",
+  descripcion: "",
+  observaciones_tecnicas: "",
+  fecha_inicio_estimada: "",
+  validez_dias: "15",
+  tipo_servicio: "",
+  incluir_margen: false,
+  tipo_margen: "porcentaje",
+  margen_pct: "",
+  margen_monto: "",
+  mostrar_margen_cliente: false,
+  garantia_mano_obra: "Mano de obra según condiciones acordadas.",
+  garantia_materiales: "Materiales según garantía del fabricante.",
+  condiciones_servicio: "Presupuesto sujeto a revisión técnica en obra.",
+  exclusiones: "",
+  forma_pago: "",
+  plazo_estimado: "",
+  condiciones: "",
+};
+
+/** Catálogo NCG de tipos de servicio (mostrado como chips de selección). */
+const TIPOS_SERVICIO_NCG: { value: string; label: string }[] = [
+  { value: "reparacion_tejado",      label: "Reparación / mantenimiento de tejado" },
+  { value: "retejado",               label: "Retejado / sustitución de tejas" },
+  { value: "tejas_curvas",           label: "Tejas curvas" },
+  { value: "impermeabilizacion",     label: "Impermeabilización y aislamiento" },
+  { value: "sistemas_ventilados",    label: "Sistemas ventilados" },
+  { value: "panel_sandwich",         label: "Paneles sándwich grecados" },
+  { value: "canalones_bajantes",     label: "Canalones y bajantes" },
+  { value: "ventanas_velux",         label: "Ventanas / claraboyas Velux" },
+  { value: "cubiertas_ligeras",      label: "Cubiertas ligeras" },
+  { value: "calculo_montaje",        label: "Cálculo y montaje de cubiertas" },
+  { value: "cubiertas_gl24",         label: "Cubiertas de madera GL24" },
+  { value: "accesorios_certificados",label: "Accesorios certificados" },
+  { value: "otro",                   label: "Otro / no estoy seguro" },
+];
+
 function obraMetaToPayload(m: ObraMeta): Record<string, unknown> {
+  const str = (s: string) => (s.trim() ? s.trim() : null);
+  const numn = (s: string) => (s.trim() !== "" ? Number(s) || null : null);
   return {
-    titulo_obra: m.titulo_obra.trim() || null,
+    cliente_contacto: str(m.cliente_contacto),
+    cliente_telefono: str(m.cliente_telefono),
+    cliente_email: str(m.cliente_email),
+    cliente_zona: str(m.cliente_zona),
+    titulo_obra: str(m.titulo_obra),
     tipo_obra_id: m.tipo_obra_id || null,
-    ubicacion: m.ubicacion.trim() || null,
-    superficie_m2: m.superficie_m2.trim() !== "" ? Number(m.superficie_m2) || null : null,
-    descripcion: m.descripcion.trim() || null,
-    validez_dias: m.validez_dias.trim() !== "" ? Number(m.validez_dias) || null : null,
-    condiciones: m.condiciones.trim() || null,
+    ubicacion: str(m.ubicacion),
+    superficie_m2: numn(m.superficie_m2),
+    unidad_principal: m.unidad_principal || "m2",
+    descripcion: str(m.descripcion),
+    observaciones_tecnicas: str(m.observaciones_tecnicas),
+    fecha_inicio_estimada: str(m.fecha_inicio_estimada),
+    validez_dias: numn(m.validez_dias),
+    tipo_servicio: str(m.tipo_servicio),
+    incluir_margen: !!m.incluir_margen,
+    tipo_margen: m.tipo_margen,
+    margen_pct: numn(m.margen_pct),
+    margen_monto: numn(m.margen_monto),
+    mostrar_margen_cliente: !!m.mostrar_margen_cliente,
+    garantia_mano_obra: str(m.garantia_mano_obra),
+    garantia_materiales: str(m.garantia_materiales),
+    condiciones_servicio: str(m.condiciones_servicio),
+    exclusiones: str(m.exclusiones),
+    forma_pago: str(m.forma_pago),
+    plazo_estimado: str(m.plazo_estimado),
+    condiciones: str(m.condiciones),
   };
+}
+
+const PRESUP_INPUT = "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0EA5E9]";
+const PRESUP_LABEL = "block text-sm font-medium text-slate-700 mb-1.5";
+
+function PresupSection({
+  titulo, defaultOpen = true, children,
+}: {
+  titulo: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = React.useState(defaultOpen);
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl shadow-sm max-w-7xl">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-4 sm:px-6 py-3 text-left"
+      >
+        <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">{titulo}</span>
+        <span className="text-slate-400 text-sm">{open ? "−" : "+"}</span>
+      </button>
+      {open && <div className="border-t border-slate-100 px-4 sm:px-6 py-4">{children}</div>}
+    </div>
+  );
 }
 
 function DatosObraSection({ meta, setMeta }: { meta: ObraMeta; setMeta: React.Dispatch<React.SetStateAction<ObraMeta>> }) {
@@ -760,66 +958,226 @@ function DatosObraSection({ meta, setMeta }: { meta: ObraMeta; setMeta: React.Di
       .catch(() => { /* tolerante */ });
   }, []);
   const setField = <K extends keyof ObraMeta>(k: K, v: ObraMeta[K]) => setMeta((p) => ({ ...p, [k]: v }));
+
   return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 sm:p-6 max-w-7xl">
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">Datos de la obra</p>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Título de la obra <span className="text-red-500">*</span></label>
-          <input value={meta.titulo_obra} onChange={(e) => setField("titulo_obra", e.target.value)}
-            placeholder="Ej. Impermeabilización cubierta vivienda Pérez"
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0EA5E9]" />
+    <div className="space-y-4">
+
+      {/* A. Datos del cliente */}
+      <PresupSection titulo="Datos del cliente" defaultOpen>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="md:col-span-2">
+            <label className={PRESUP_LABEL}>Cliente / contacto <span className="text-red-500">*</span></label>
+            <input value={meta.cliente_contacto} onChange={(e) => setField("cliente_contacto", e.target.value)}
+              placeholder="Ej. Carlos Pérez" className={PRESUP_INPUT} />
+          </div>
+          <div>
+            <label className={PRESUP_LABEL}>Teléfono</label>
+            <input value={meta.cliente_telefono} onChange={(e) => setField("cliente_telefono", e.target.value)}
+              placeholder="Ej. 600 000 000" className={PRESUP_INPUT} />
+          </div>
+          <div>
+            <label className={PRESUP_LABEL}>Email <span className="text-xs font-normal text-slate-400">(opcional)</span></label>
+            <input type="email" value={meta.cliente_email} onChange={(e) => setField("cliente_email", e.target.value)}
+              placeholder="cliente@ejemplo.com" className={PRESUP_INPUT} />
+          </div>
+          <div className="md:col-span-2">
+            <label className={PRESUP_LABEL}>Zona / ciudad</label>
+            <input value={meta.cliente_zona} onChange={(e) => setField("cliente_zona", e.target.value)}
+              placeholder="Ej. Madrid Centro" className={PRESUP_INPUT} />
+          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Tipo de obra</label>
-          <select value={meta.tipo_obra_id} onChange={(e) => setField("tipo_obra_id", e.target.value)}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0EA5E9]">
-            <option value="">— Tipo por defecto —</option>
-            {tipos.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-          </select>
+      </PresupSection>
+
+      {/* B. Datos de la obra */}
+      <PresupSection titulo="Datos de la obra" defaultOpen>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label className={PRESUP_LABEL}>Título del presupuesto <span className="text-red-500">*</span></label>
+            <input value={meta.titulo_obra} onChange={(e) => setField("titulo_obra", e.target.value)}
+              placeholder="Ej. Impermeabilización cubierta vivienda Pérez" className={PRESUP_INPUT} />
+          </div>
+          <div>
+            <label className={PRESUP_LABEL}>Tipo de obra (proyecto)</label>
+            <select value={meta.tipo_obra_id} onChange={(e) => setField("tipo_obra_id", e.target.value)}
+              className={PRESUP_INPUT}>
+              <option value="">— Tipo por defecto —</option>
+              {tipos.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={PRESUP_LABEL}>Ubicación</label>
+            <input value={meta.ubicacion} onChange={(e) => setField("ubicacion", e.target.value)}
+              placeholder="Calle, número, planta…" className={PRESUP_INPUT} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className={PRESUP_LABEL}>Superficie estimada</label>
+              <input type="text" inputMode="decimal" value={meta.superficie_m2}
+                onChange={(e) => setField("superficie_m2", e.target.value.replace(/[^\d.,-]/g, ""))}
+                placeholder="80" className={PRESUP_INPUT} />
+            </div>
+            <div>
+              <label className={PRESUP_LABEL}>Unidad</label>
+              <select value={meta.unidad_principal} onChange={(e) => setField("unidad_principal", e.target.value)}
+                className={PRESUP_INPUT}>
+                <option value="m2">m²</option>
+                <option value="ml">metro lineal</option>
+                <option value="u">unidad</option>
+              </select>
+            </div>
+          </div>
+          <div className="md:col-span-2">
+            <label className={PRESUP_LABEL}>Descripción del trabajo <span className="text-red-500">*</span></label>
+            <textarea value={meta.descripcion} onChange={(e) => setField("descripcion", e.target.value)} rows={2}
+              className={PRESUP_INPUT} />
+          </div>
+          <div className="md:col-span-2">
+            <label className={PRESUP_LABEL}>Observaciones técnicas <span className="text-xs font-normal text-slate-400">(opcional)</span></label>
+            <textarea value={meta.observaciones_tecnicas} onChange={(e) => setField("observaciones_tecnicas", e.target.value)} rows={2}
+              className={PRESUP_INPUT} />
+          </div>
+          <div>
+            <label className={PRESUP_LABEL}>Fecha estimada de inicio <span className="text-xs font-normal text-slate-400">(opcional)</span></label>
+            <input type="date" value={meta.fecha_inicio_estimada}
+              onChange={(e) => setField("fecha_inicio_estimada", e.target.value)} className={PRESUP_INPUT} />
+          </div>
+          <div>
+            <label className={PRESUP_LABEL}>Validez del presupuesto (días)</label>
+            <input type="number" min={1} value={meta.validez_dias}
+              onChange={(e) => setField("validez_dias", e.target.value)} className={PRESUP_INPUT} />
+          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Ubicación / zona</label>
-          <input value={meta.ubicacion} onChange={(e) => setField("ubicacion", e.target.value)}
-            placeholder="Ej. Madrid Centro"
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0EA5E9]" />
+      </PresupSection>
+
+      {/* C. Tipo de servicio */}
+      <PresupSection titulo="Tipo de servicio" defaultOpen={false}>
+        <div className="flex flex-wrap gap-2">
+          {TIPOS_SERVICIO_NCG.map((t) => {
+            const sel = meta.tipo_servicio === t.value;
+            return (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => setField("tipo_servicio", sel ? "" : t.value)}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                  sel
+                    ? "border-[#0EA5E9] bg-[#0EA5E9]/10 text-[#0284C7]"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                }`}
+              >
+                {sel ? "✓ " : ""}{t.label}
+              </button>
+            );
+          })}
         </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Superficie estimada (m²)</label>
-          <input type="text" inputMode="decimal"
-            value={meta.superficie_m2} onChange={(e) => setField("superficie_m2", e.target.value.replace(/[^\d.,-]/g, ""))}
-            placeholder="80"
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0EA5E9]" />
+      </PresupSection>
+
+      {/* D. Margen / beneficio (opcional) */}
+      <PresupSection titulo="Margen / beneficio" defaultOpen={false}>
+        <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
+          <input type="checkbox" checked={meta.incluir_margen}
+            onChange={(e) => setField("incluir_margen", e.target.checked)}
+            className="h-4 w-4 rounded border-slate-300" />
+          Incluir margen / beneficio en el presupuesto
+        </label>
+        {meta.incluir_margen && (
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label className={PRESUP_LABEL}>Tipo de margen</label>
+              <select value={meta.tipo_margen}
+                onChange={(e) => setField("tipo_margen", e.target.value === "monto" ? "monto" : "porcentaje")}
+                className={PRESUP_INPUT}>
+                <option value="porcentaje">Porcentaje (%)</option>
+                <option value="monto">Monto fijo (€)</option>
+              </select>
+            </div>
+            {meta.tipo_margen === "porcentaje" ? (
+              <div>
+                <label className={PRESUP_LABEL}>Margen %</label>
+                <input type="text" inputMode="decimal" value={meta.margen_pct}
+                  onChange={(e) => setField("margen_pct", e.target.value.replace(/[^\d.,-]/g, ""))}
+                  placeholder="Ej. 20" className={PRESUP_INPUT} />
+              </div>
+            ) : (
+              <div>
+                <label className={PRESUP_LABEL}>Margen €</label>
+                <input type="text" inputMode="decimal" value={meta.margen_monto}
+                  onChange={(e) => setField("margen_monto", e.target.value.replace(/[^\d.,-]/g, ""))}
+                  placeholder="Ej. 500" className={PRESUP_INPUT} />
+              </div>
+            )}
+            <div className="md:col-span-2">
+              <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                <input type="checkbox" checked={meta.mostrar_margen_cliente}
+                  onChange={(e) => setField("mostrar_margen_cliente", e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300" />
+                Mostrar margen al cliente (línea visible en el presupuesto)
+              </label>
+              <p className="mt-1 ml-6 text-[11px] text-slate-500">
+                Si está apagado, el margen se suma al subtotal pero no aparece como partida separada en el PDF.
+              </p>
+            </div>
+          </div>
+        )}
+      </PresupSection>
+
+      {/* E. Garantía y condiciones */}
+      <PresupSection titulo="Garantía y condiciones" defaultOpen={false}>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label className={PRESUP_LABEL}>Garantía mano de obra</label>
+            <input value={meta.garantia_mano_obra}
+              onChange={(e) => setField("garantia_mano_obra", e.target.value)} className={PRESUP_INPUT} />
+          </div>
+          <div>
+            <label className={PRESUP_LABEL}>Garantía materiales</label>
+            <input value={meta.garantia_materiales}
+              onChange={(e) => setField("garantia_materiales", e.target.value)} className={PRESUP_INPUT} />
+          </div>
+          <div>
+            <label className={PRESUP_LABEL}>Forma de pago</label>
+            <input value={meta.forma_pago} onChange={(e) => setField("forma_pago", e.target.value)}
+              placeholder="Ej. 30% al iniciar, 70% al entregar" className={PRESUP_INPUT} />
+          </div>
+          <div>
+            <label className={PRESUP_LABEL}>Plazo estimado</label>
+            <input value={meta.plazo_estimado} onChange={(e) => setField("plazo_estimado", e.target.value)}
+              placeholder="Ej. 5 días laborables" className={PRESUP_INPUT} />
+          </div>
+          <div className="md:col-span-2">
+            <label className={PRESUP_LABEL}>Condiciones del servicio</label>
+            <textarea value={meta.condiciones_servicio} onChange={(e) => setField("condiciones_servicio", e.target.value)}
+              rows={2} className={PRESUP_INPUT} />
+          </div>
+          <div className="md:col-span-2">
+            <label className={PRESUP_LABEL}>Exclusiones</label>
+            <textarea value={meta.exclusiones} onChange={(e) => setField("exclusiones", e.target.value)}
+              rows={2} className={PRESUP_INPUT}
+              placeholder="Ej. No incluye permisos municipales ni andamio si la cubierta requiere > 4 m." />
+          </div>
         </div>
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Descripción del trabajo</label>
-          <textarea value={meta.descripcion} onChange={(e) => setField("descripcion", e.target.value)} rows={2}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0EA5E9]" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Validez del presupuesto (días)</label>
-          <input type="number" min={1} value={meta.validez_dias}
-            onChange={(e) => setField("validez_dias", e.target.value)}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0EA5E9]" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Observaciones / condiciones</label>
-          <input value={meta.condiciones} onChange={(e) => setField("condiciones", e.target.value)}
-            placeholder="Ej. 30% al iniciar, 70% al entregar"
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0EA5E9]" />
-        </div>
-      </div>
+      </PresupSection>
+
     </div>
   );
 }
 
 // ── Modal de partida manual ─────────────────────────────────────────────────
 
+/**
+ * Tipos de partida manual (sin producto del inventario). Para "Material
+ * estimado" y "Consumible estimado" se usa el ProductPickerModal — esos no
+ * pasan por este selector.
+ */
 const TIPO_PARTIDA_OPTS: { value: string; label: string }[] = [
-  { value: "mano_obra", label: "Mano de obra" },
-  { value: "servicio", label: "Servicio" },
-  { value: "transporte", label: "Transporte" },
-  { value: "otro", label: "Otro gasto" },
+  { value: "mano_obra",          label: "Mano de obra" },
+  { value: "servicio",           label: "Servicio" },
+  { value: "transporte",         label: "Transporte" },
+  { value: "alquiler_equipo",    label: "Alquiler de equipo" },
+  { value: "retiro_escombros",   label: "Retiro de escombros" },
+  { value: "seguridad_andamio",  label: "Seguridad / andamio" },
+  { value: "limpieza_final",     label: "Limpieza final" },
+  { value: "otro",               label: "Otro gasto" },
 ];
 
 function PartidaManualModal({ onClose, onAgregar }: { onClose: () => void; onAgregar: (l: LineaVenta) => void }) {
@@ -865,7 +1223,7 @@ function PartidaManualModal({ onClose, onAgregar }: { onClose: () => void; onAgr
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={onClose}>
       <div className="w-full max-w-xl rounded-2xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="border-b border-slate-200 px-5 py-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-slate-900">Agregar partida manual</h2>
+          <h2 className="text-base font-semibold text-slate-900">Agregar concepto</h2>
           <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700">✕</button>
         </div>
         <form onSubmit={handleAgregar} className="space-y-4 p-5">
@@ -929,7 +1287,7 @@ function PartidaManualModal({ onClose, onAgregar }: { onClose: () => void; onAgr
             <button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">Cancelar</button>
             <button type="submit" disabled={!valida}
               className="rounded-lg bg-[#0EA5E9] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#0284C7] disabled:opacity-40">
-              Agregar partida
+              Agregar concepto
             </button>
           </div>
         </form>
