@@ -158,13 +158,14 @@ function formatMontoPygResumen(raw: string): string {
   }
 }
 
-function montoPareceMuyBajo(raw: string): boolean {
-  try {
-    const n = parseMontoPyg(raw, { nullable: true });
-    return n != null && n > 0 && n < 1000;
-  } catch {
-    return false;
-  }
+/**
+ * Heurística legado (guaraníes): un monto < 1.000 podía ser por error si el
+ * usuario quería millones. En euros pierde sentido: 500€ de premio fijo o
+ * un tramo "desde 1.000€" son valores normales. Se desactiva devolviendo
+ * siempre false; mantenemos la función para no romper el call site.
+ */
+function montoPareceMuyBajo(_raw: string): boolean {
+  return false;
 }
 
 type PoliticaApiData = {
