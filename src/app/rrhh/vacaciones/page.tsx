@@ -333,7 +333,6 @@ function VacacionesInner() {
                 <th className="px-4 py-3 font-semibold text-right">Anuales</th>
                 <th className="px-4 py-3 font-semibold text-right">Generados</th>
                 <th className="px-4 py-3 font-semibold text-right">Usados</th>
-                <th className="px-4 py-3 font-semibold text-right">Pend. aprobación</th>
                 <th className="px-4 py-3 font-semibold text-right">Disponibles</th>
                 <th className="px-4 py-3 font-semibold hidden md:table-cell">Próxima ausencia</th>
               </tr>
@@ -345,7 +344,7 @@ function VacacionesInner() {
                   ? saldos.filter((s) => s.empleado_nombre.toLowerCase().includes(q))
                   : saldos;
                 if (filas.length === 0) {
-                  return <tr><td colSpan={7} className="py-10 text-center text-gray-400">{q ? "Ningún empleado coincide" : "Sin empleados activos"}</td></tr>;
+                  return <tr><td colSpan={6} className="py-10 text-center text-gray-400">{q ? "Ningún empleado coincide" : "Sin empleados activos"}</td></tr>;
                 }
                 return filas.map((s) => (
                   <tr key={s.empleado_id} className="hover:bg-[#4FAEB2]/[0.04]">
@@ -356,7 +355,6 @@ function VacacionesInner() {
                     <td className="px-4 py-2.5 text-right tabular-nums">{s.dias_anuales}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">{s.dias_generados}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">{s.dias_usados}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-amber-700">{s.dias_pendientes_aprobacion}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-emerald-700">{s.dias_disponibles}</td>
                     <td className="px-4 py-2.5 text-xs text-gray-600 hidden md:table-cell">
                       {s.proxima_ausencia_desde
