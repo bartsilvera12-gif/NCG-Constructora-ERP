@@ -37,6 +37,73 @@ export const PROYECTO_WEB_BRIEF_FIELDS: BriefFieldDef[] = [
 ];
 
 /**
+ * Campos del brief para OBRAS de construcción (NCG: tejados, impermeabilización,
+ * cubiertas, etc.). Se muestran en la pestaña "Datos de obra" del detalle.
+ *
+ * Se persisten en `proyectos.brief_data` (jsonb) junto con los demás. Si un
+ * tipo no usa estos campos, no se renderizan.
+ */
+export const PROYECTO_OBRA_BRIEF_FIELDS: BriefFieldDef[] = [
+  { kind: "text", key: "direccion_obra",        label: "Dirección / ubicación",         placeholder: "Calle, número, planta…" },
+  { kind: "text", key: "zona_ciudad",           label: "Zona / ciudad",                  placeholder: "Ej. Madrid Centro" },
+  { kind: "text", key: "superficie_estimada",   label: "Superficie estimada",            placeholder: "Ej. 80" },
+  { kind: "text", key: "unidad_principal",      label: "Unidad principal",               placeholder: "m² / metro lineal / unidad" },
+  { kind: "text", key: "descripcion_trabajo",   label: "Descripción del trabajo" },
+  { kind: "text", key: "estado_actual_cubierta",label: "Estado actual de la cubierta / tejado" },
+  { kind: "text", key: "observaciones_tecnicas",label: "Observaciones técnicas" },
+  { kind: "text", key: "tecnico_responsable",   label: "Técnico responsable" },
+  { kind: "text", key: "condiciones_comerciales",label: "Condiciones comerciales",       placeholder: "Ej. 30% al iniciar, 70% al entregar" },
+  { kind: "text", key: "garantia_mano_obra",    label: "Garantía mano de obra",          placeholder: "Ej. 1 año" },
+  { kind: "text", key: "garantia_materiales",   label: "Garantía materiales",            placeholder: "Según garantía del fabricante" },
+  { kind: "text", key: "fecha_visita",          label: "Fecha de visita técnica",        placeholder: "AAAA-MM-DD" },
+  { kind: "text", key: "fecha_inicio",          label: "Fecha estimada de inicio",       placeholder: "AAAA-MM-DD" },
+  { kind: "text", key: "fecha_fin",             label: "Fecha estimada de finalización", placeholder: "AAAA-MM-DD" },
+];
+
+/**
+ * Códigos de tipo que se consideran "obra de construcción" para NCG.
+ * Cubre los códigos que slugifica el form del catálogo de tipos.
+ *
+ * Si en el futuro hay un campo `categoria` en proyecto_tipos, conviene mover
+ * esta lógica a una columna `es_obra: boolean` y dejar el helper como fallback.
+ */
+const SLUGS_OBRA_CONSTRUCTORA = new Set<string>([
+  // genéricos
+  "obra", "construccion", "tejado", "tejados", "cubierta", "cubiertas",
+  // catálogo NCG
+  "reparacion_de_tejado", "reparacion_mantenimiento_de_tejado",
+  "retejado", "retejado_sustitucion_de_tejas",
+  "tejas_curvas",
+  "impermeabilizacion", "impermeabilizacion_y_aislamiento",
+  "sistemas_ventilados",
+  "paneles_sandwich", "paneles_sandwich_grecados",
+  "canalones", "canalones_y_bajantes",
+  "ventanas_velux", "claraboyas_velux", "ventanas_claraboyas_velux",
+  "cubiertas_ligeras",
+  "calculo_y_montaje", "calculo_y_montaje_de_cubiertas",
+  "cubiertas_gl24", "cubiertas_de_madera_gl24",
+  "accesorios_certificados",
+  "mantenimiento", "obras_integrales",
+]);
+
+/**
+ * Decide si un código de tipo de proyecto corresponde a una OBRA de NCG
+ * (construcción/cubiertas) y por lo tanto debe usar el brief de obra,
+ * ocultar campos web/SaaS/pedido, y mostrar la UI orientada a obra.
+ */
+export function isObraConstructora(codigoTipo: string | null | undefined): boolean {
+  if (!codigoTipo) return false;
+  const c = codigoTipo.trim().toLowerCase();
+  if (!c) return false;
+  if (SLUGS_OBRA_CONSTRUCTORA.has(c)) return true;
+  // Heurística: cualquier código que CONTENGA alguno de estos términos.
+  return [
+    "tejado", "cubierta", "impermeab", "retejad", "velux",
+    "canalon", "bajante", "sandwich", "gl24", "obra",
+  ].some((k) => c.includes(k));
+}
+
+/**
  * Campos del brief para pedidos de entrega / distribución (verticales no-web).
  * Se muestran en la pestaña "Datos" del pedido y en el resumen.
  */
@@ -57,6 +124,7 @@ export const PROYECTO_ENTREGA_BRIEF_FIELDS: BriefFieldDef[] = [
 export const PROYECTO_DATOS_BRIEF_FIELDS: BriefFieldDef[] = [
   ...PROYECTO_WEB_BRIEF_FIELDS,
   ...PROYECTO_ENTREGA_BRIEF_FIELDS,
+  ...PROYECTO_OBRA_BRIEF_FIELDS,
 ];
 
 export const PROYECTO_SAAS_BRIEF_KEYS = {

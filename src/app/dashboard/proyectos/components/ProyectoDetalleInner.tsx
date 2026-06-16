@@ -13,6 +13,8 @@ import {
 import {
   PROYECTO_WEB_BRIEF_FIELDS,
   PROYECTO_ENTREGA_BRIEF_FIELDS,
+  PROYECTO_OBRA_BRIEF_FIELDS,
+  isObraConstructora,
   applyBriefFormToExisting,
   applySaasFormToExisting,
   coalesceBriefData,
@@ -310,6 +312,7 @@ export default function ProyectoDetalleInner({
   const codigoTipo = proyecto?.proyecto_tipo?.codigo ?? "";
   const esWeb = codigoTipo === "web";
   const esSaas = codigoTipo === "saas";
+  const esObra = isObraConstructora(codigoTipo);
   // Pedido de distribución: cualquier tipo que no sea web/saas. Es el caso de la
   // distribuidora (tarjeta creada desde una venta), donde el Resumen funciona como
   // "hoja de reparto": productos + datos de entrega para el repartidor.
@@ -452,14 +455,18 @@ export default function ProyectoDetalleInner({
                 : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
             }`}
           >
-            {TAB_LABELS[t]}
+            {esObra && t === "datos" ? "Datos de obra"
+              : esObra && t === "personal" ? "Mano de obra"
+              : TAB_LABELS[t]}
           </button>
         ))}
       </div>
 
       <div className={variant === "modal" ? "min-h-0 flex-1 overflow-y-auto pr-1" : ""}>
         {tab === "resumen" ? (
-          esPedido ? (
+          // Para Obras NCG saltamos la rama "Pedido" (productos + repartidor).
+          // Mostramos el resumen genérico (cliente, técnico, fecha, presupuesto).
+          esPedido && !esObra ? (
             <div className="grid gap-4 md:grid-cols-2">
               {/* Productos del pedido (snapshot de la venta) */}
               <div className={panelCls}>
@@ -711,7 +718,7 @@ export default function ProyectoDetalleInner({
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block text-sm">
-                <span className={labelCls}>{esPedido ? "Repartidor" : "Técnico responsable"}</span>
+                <span className={labelCls}>{esPedido && !esObra ? "Repartidor" : "Técnico responsable"}</span>
                 <select
                   className={inputCls}
                   value={responsableTecnicoId}
@@ -769,8 +776,28 @@ export default function ProyectoDetalleInner({
               </div>
             ) : null}
 
-            {/* Pedidos de distribución (tipo no-web/no-saas): datos de entrega. */}
-            {!esWeb && !esSaas ? (
+            {/* Obras NCG (tejados, impermeabilización, cubiertas…): datos de obra. */}
+            {esObra ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {PROYECTO_OBRA_BRIEF_FIELDS.map((f) => (
+                  <label
+                    key={f.key}
+                    className={`block text-sm ${f.key === "descripcion_trabajo" || f.key === "observaciones_tecnicas" ? "sm:col-span-2" : ""}`}
+                  >
+                    <span className={labelCls}>{f.label}</span>
+                    <input
+                      className={inputCls}
+                      placeholder={f.kind === "text" ? f.placeholder : undefined}
+                      value={briefForm[f.key] ?? ""}
+                      onChange={(e) => setBriefForm((b) => ({ ...b, [f.key]: e.target.value }))}
+                    />
+                  </label>
+                ))}
+              </div>
+            ) : null}
+
+            {/* Pedidos de distribución (tipo no-web/no-saas/no-obra): datos de entrega. */}
+            {!esWeb && !esSaas && !esObra ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 {PROYECTO_ENTREGA_BRIEF_FIELDS.map((f) => (
                   <label

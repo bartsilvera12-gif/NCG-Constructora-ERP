@@ -12,7 +12,9 @@ import {
 import {
   PROYECTO_WEB_BRIEF_FIELDS,
   PROYECTO_ENTREGA_BRIEF_FIELDS,
+  PROYECTO_OBRA_BRIEF_FIELDS,
   applySaasFormToExisting,
+  isObraConstructora,
   type ProyectoModuloSnapshot,
 } from "@/lib/proyectos/brief-data";
 
@@ -137,6 +139,7 @@ export default function ProyectoNuevoClient() {
   }, [empleados, asignaciones]);
   const esWeb = tipoCodigo === "web";
   const esSaas = tipoCodigo === "saas";
+  const esObra = isObraConstructora(tipoCodigo);
   const saasModulosSeleccionados = useMemo<ProyectoModuloSnapshot[]>(
     () =>
       modulosCatalogo
@@ -201,9 +204,13 @@ export default function ProyectoNuevoClient() {
               modulos_necesarios: saasModulosSeleccionados,
             }
           )
-        : Object.fromEntries(
-            PROYECTO_ENTREGA_BRIEF_FIELDS.map(({ key }) => [key, brief[key] ?? ""]).filter(([, v]) => v !== "")
-          );
+        : esObra
+          ? Object.fromEntries(
+              PROYECTO_OBRA_BRIEF_FIELDS.map(({ key }) => [key, brief[key] ?? ""]).filter(([, v]) => v !== "")
+            )
+          : Object.fromEntries(
+              PROYECTO_ENTREGA_BRIEF_FIELDS.map(({ key }) => [key, brief[key] ?? ""]).filter(([, v]) => v !== "")
+            );
 
     const body: Record<string, unknown> = {
       tipo_id: tipoId,
@@ -416,7 +423,30 @@ export default function ProyectoNuevoClient() {
 
         {/* Sección 'Datos del proyecto (web)' removida — no aplica al rubro construcción. */}
 
-        {!esWeb && !esSaas ? (
+        {esObra ? (
+          <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+            <h2 className="text-sm font-semibold text-slate-800">Datos de la obra</h2>
+            <p className="text-xs text-slate-500">Completá lo que ya sepas. Podés ajustarlo después desde el detalle.</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {PROYECTO_OBRA_BRIEF_FIELDS.map((f) => (
+                <label
+                  key={f.key}
+                  className={`block text-sm ${f.key === "descripcion_trabajo" || f.key === "observaciones_tecnicas" ? "sm:col-span-2" : ""}`}
+                >
+                  <span className="text-slate-700">{f.label}</span>
+                  <input
+                    className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+                    placeholder={f.kind === "text" ? f.placeholder : undefined}
+                    value={brief[f.key] ?? ""}
+                    onChange={(e) => setBrief((b) => ({ ...b, [f.key]: e.target.value }))}
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {!esWeb && !esSaas && !esObra ? (
           <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/60 p-4">
             <h2 className="text-sm font-semibold text-slate-800">Datos de entrega</h2>
             <div className="grid gap-3 sm:grid-cols-2">

@@ -122,7 +122,10 @@ export default function PersonalObra({ projectId }: { projectId: string }) {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="text-sm font-semibold text-slate-700">Registrar horas</h3>
+          <h3 className="text-sm font-semibold text-slate-700">Registrar horas de mano de obra</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            El costo se calcula con el <strong>costo por hora</strong> del empleado y se suma a la rentabilidad de la obra.
+          </p>
           <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-5">
             <div className="md:col-span-2">
               <label className={lblCls}>Empleado</label>
@@ -192,7 +195,9 @@ export default function PersonalObra({ projectId }: { projectId: string }) {
               {loading ? (
                 <tr><td colSpan={6} className="py-6 text-center text-gray-400">Cargando…</td></tr>
               ) : asignaciones.length === 0 ? (
-                <tr><td colSpan={6} className="py-6 text-center text-gray-400">Sin asignaciones</td></tr>
+                <tr><td colSpan={6} className="py-8 text-center text-gray-400">
+                  Todavía no hay horas registradas. Registrá horas arriba para calcular el costo real de mano de obra.
+                </td></tr>
               ) : (
                 asignaciones.map((a) => (
                   <tr key={a.id} className="border-b border-slate-100 last:border-0">

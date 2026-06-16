@@ -61,15 +61,43 @@ export default function RentabilidadObra({ projectId }: { projectId: string }) {
   if (err) return <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{err}</div>;
   if (!data) return null;
 
+  const sinDatos =
+    data.presupuestado === 0 &&
+    data.facturado === 0 &&
+    data.costo_total === 0 &&
+    data.cantidades.ventas === 0 &&
+    data.cantidades.movimientos === 0 &&
+    data.cantidades.compras === 0 &&
+    data.cantidades.gastos === 0 &&
+    data.cantidades.asignaciones === 0;
+
   const margenColor = data.margen >= 0 ? "text-emerald-700" : "text-red-700";
   const margenBg = data.margen >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200";
 
+  if (sinDatos) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-600">
+        <p className="font-medium text-slate-800">Todavía no hay datos suficientes para calcular rentabilidad.</p>
+        <p className="mt-2 text-xs text-slate-500">
+          Cargá presupuesto, registrá salidas de inventario, imputá compras o gastos a esta obra, o registrá horas de
+          mano de obra para que el cálculo se active automáticamente.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
-      <p className="text-xs text-slate-500">
-        Resumen calculado automáticamente desde ventas, compras, gastos y movimientos de inventario
-        imputados a esta obra.
-      </p>
+      <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800">
+        Estos datos se calculan automáticamente desde <strong>presupuesto, ventas, compras, gastos, inventario y mano de obra</strong> vinculados a esta obra.
+        El presupuesto NO descuenta stock; solo lo hacen las salidas reales de inventario.
+      </div>
+
+      {data.facturado === 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          Sin facturación vinculada todavía. El margen mostrado es <strong>estimado</strong> (presupuestado − costo total).
+        </div>
+      )}
 
       {/* KPIs principales */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
