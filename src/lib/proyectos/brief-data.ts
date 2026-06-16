@@ -86,21 +86,42 @@ const SLUGS_OBRA_CONSTRUCTORA = new Set<string>([
   "mantenimiento", "obras_integrales",
 ]);
 
+const OBRA_KEYWORDS = [
+  "tejado", "cubierta", "impermeab", "retejad", "velux",
+  "canalon", "bajante", "sandwich", "gl24", "obra",
+];
+
+/** Match contra cualquier código/nombre normalizado. */
+function matchObraTexto(raw: string | null | undefined): boolean {
+  if (!raw) return false;
+  const t = raw.trim().toLowerCase();
+  if (!t) return false;
+  if (SLUGS_OBRA_CONSTRUCTORA.has(t)) return true;
+  // Normalizar acentos para que "reparación" o "impermeabilización"
+  // matchee con los keywords sin acentos.
+  const norm = t.normalize("NFD").replace(/[̀-ͯ]/g, "");
+  return OBRA_KEYWORDS.some((k) => norm.includes(k));
+}
+
 /**
- * Decide si un código de tipo de proyecto corresponde a una OBRA de NCG
- * (construcción/cubiertas) y por lo tanto debe usar el brief de obra,
- * ocultar campos web/SaaS/pedido, y mostrar la UI orientada a obra.
+ * Decide si un tipo de proyecto corresponde a una OBRA de NCG
+ * (construcción/cubiertas). Acepta string (código), o un objeto
+ * con codigo y/o nombre.
+ *
+ * Importante: chequear AMBOS (codigo y nombre) porque a veces un tipo
+ * legacy con codigo="web" se renombra a "Reparación de tejado" sin
+ * actualizar el codigo. El nombre manda en ese caso.
  */
-export function isObraConstructora(codigoTipo: string | null | undefined): boolean {
-  if (!codigoTipo) return false;
-  const c = codigoTipo.trim().toLowerCase();
-  if (!c) return false;
-  if (SLUGS_OBRA_CONSTRUCTORA.has(c)) return true;
-  // Heurística: cualquier código que CONTENGA alguno de estos términos.
-  return [
-    "tejado", "cubierta", "impermeab", "retejad", "velux",
-    "canalon", "bajante", "sandwich", "gl24", "obra",
-  ].some((k) => c.includes(k));
+export function isObraConstructora(
+  input:
+    | string
+    | null
+    | undefined
+    | { codigo?: string | null; nombre?: string | null },
+): boolean {
+  if (input == null) return false;
+  if (typeof input === "string") return matchObraTexto(input);
+  return matchObraTexto(input.codigo) || matchObraTexto(input.nombre);
 }
 
 /**

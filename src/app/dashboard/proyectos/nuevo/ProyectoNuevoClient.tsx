@@ -137,9 +137,13 @@ export default function ProyectoNuevoClient() {
       return idsAsig.has(e.id);
     });
   }, [empleados, asignaciones]);
-  const esWeb = tipoCodigo === "web";
-  const esSaas = tipoCodigo === "saas";
-  const esObra = isObraConstructora(tipoCodigo);
+  const tipoSeleccionado = useMemo(() => tipos.find((t) => t.id === tipoId) ?? null, [tipos, tipoId]);
+  // Detectar obra por codigo O por nombre (cubre tipos legacy renombrados
+  // sin actualizar el codigo).
+  const esObra = isObraConstructora({ codigo: tipoCodigo, nombre: tipoSeleccionado?.nombre ?? null });
+  // Si es obra, los flags web/saas se anulan para no mostrar campos legacy.
+  const esWeb = !esObra && tipoCodigo === "web";
+  const esSaas = !esObra && tipoCodigo === "saas";
   const saasModulosSeleccionados = useMemo<ProyectoModuloSnapshot[]>(
     () =>
       modulosCatalogo

@@ -32,7 +32,7 @@ export type DetalleResp = {
     brief_data?: Record<string, unknown>;
     tipo_id?: string;
     estado_id?: string;
-    proyecto_tipo?: { codigo?: string };
+    proyecto_tipo?: { codigo?: string; nombre?: string };
   };
   historial: Record<string, unknown>[];
   sla: Record<string, unknown>;
@@ -310,9 +310,14 @@ export default function ProyectoDetalleInner({
 
   const proyecto = data?.proyecto;
   const codigoTipo = proyecto?.proyecto_tipo?.codigo ?? "";
-  const esWeb = codigoTipo === "web";
-  const esSaas = codigoTipo === "saas";
-  const esObra = isObraConstructora(codigoTipo);
+  const nombreTipo = proyecto?.proyecto_tipo?.nombre ?? "";
+  // Detectar obra por codigo O por nombre (cubre tipos legacy renombrados
+  // a "Reparación de tejado" pero con codigo="web" todavía en DB).
+  const esObra = isObraConstructora({ codigo: codigoTipo, nombre: nombreTipo });
+  // Si es obra, anulamos los flags web/saas para que el render no muestre
+  // los bloques de brief web/saas legacy.
+  const esWeb = !esObra && codigoTipo === "web";
+  const esSaas = !esObra && codigoTipo === "saas";
   // Pedido de distribución: cualquier tipo que no sea web/saas. Es el caso de la
   // distribuidora (tarjeta creada desde una venta), donde el Resumen funciona como
   // "hoja de reparto": productos + datos de entrega para el repartidor.
@@ -713,6 +718,11 @@ export default function ProyectoDetalleInner({
             {esSaas ? (
               <p className="text-xs text-slate-500">
                 Tipo &quot;SaaS / ERP&quot;: snapshot de módulos requeridos, sin activar permisos ni módulos reales.
+              </p>
+            ) : null}
+            {esObra ? (
+              <p className="text-xs text-slate-500">
+                Obra de construcción NCG: completá los datos técnicos y comerciales de la obra.
               </p>
             ) : null}
 
