@@ -38,13 +38,6 @@ type Saldo = {
   proxima_ausencia_hasta: string | null;
 };
 
-type Kpis = {
-  empleados_de_vacaciones_hoy: number;
-  solicitudes_pendientes: number;
-  aprobadas_este_mes: number;
-  proximas_vacaciones: number;
-};
-
 const TIPO_LABEL: Record<Tipo, string> = {
   vacaciones: "Vacaciones",
   permiso_retribuido: "Permiso retribuido",
@@ -81,11 +74,12 @@ function VacacionesInner() {
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);
   const [saldos, setSaldos] = useState<Saldo[]>([]);
-  const [kpis, setKpis] = useState<Kpis>({ empleados_de_vacaciones_hoy: 0, solicitudes_pendientes: 0, aprobadas_este_mes: 0, proximas_vacaciones: 0 });
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [tab, setTab] = useState<"lista" | "saldos">("lista");
   const [previewDias, setPreviewDias] = useState<{ dias: number; tipo: string } | null>(null);
+  // Buscador que aplica a Listado y Saldos.
+  const [busqueda, setBusqueda] = useState("");
 
   const [form, setForm] = useState({
     empleado_id: empleadoFiltro,
@@ -93,7 +87,6 @@ function VacacionesInner() {
     fecha_desde: todayIso(),
     fecha_hasta: todayIso(),
     observacion: "",
-    modo: "admin" as "admin" | "solicitud",
   });
   const [saving, setSaving] = useState(false);
 
@@ -108,13 +101,12 @@ function VacacionesInner() {
       ]);
       const jE = (await rE.json().catch(() => ({}))) as { success?: boolean; data?: { empleados?: Empleado[] } };
       const jS = (await rS.json().catch(() => ({}))) as { success?: boolean; data?: { solicitudes?: Solicitud[] }; error?: string };
-      const jB = (await rB.json().catch(() => ({}))) as { success?: boolean; data?: { saldos?: Saldo[]; kpis?: Kpis } };
+      const jB = (await rB.json().catch(() => ({}))) as { success?: boolean; data?: { saldos?: Saldo[] } };
       if (rE.ok && jE.success) setEmpleados(jE.data?.empleados ?? []);
       if (rS.ok && jS.success) { setSolicitudes(jS.data?.solicitudes ?? []); setErr(null); }
       else setErr(jS.error ?? "No se pudieron cargar las solicitudes");
       if (rB.ok && jB.success) {
         setSaldos(jB.data?.saldos ?? []);
-        setKpis(jB.data?.kpis ?? kpis);
       }
     } finally { setLoading(false); }
   }, [empleadoFiltro]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -151,7 +143,9 @@ function VacacionesInner() {
           fecha_desde: form.fecha_desde,
           fecha_hasta: form.fecha_hasta,
           observacion: form.observacion,
-          modo: form.modo,
+          // Siempre admin: no hay flujo de aprobación en este MVP. El registro
+          // queda directamente aprobado.
+          modo: "admin",
         }),
       });
       const j = (await r.json().catch(() => ({}))) as { success?: boolean; error?: string };
@@ -195,14 +189,6 @@ function VacacionesInner() {
 
       {err && <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{err}</div>}
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi label="De vacaciones hoy" value={kpis.empleados_de_vacaciones_hoy} />
-        <Kpi label="Pendientes de aprobar" value={kpis.solicitudes_pendientes} tone="amber" />
-        <Kpi label="Aprobadas este mes" value={kpis.aprobadas_este_mes} tone="emerald" />
-        <Kpi label="Próximas (futuro)" value={kpis.proximas_vacaciones} tone="sky" />
-      </div>
-
       {nombreFiltrado && (
         <div className="flex items-center gap-2 rounded-lg border border-[#4FAEB2]/30 bg-[#E5F4F4] px-3 py-2 text-xs">
           <span className="font-medium text-[#3F8E91]">Filtro: {nombreFiltrado}</span>
@@ -216,8 +202,8 @@ function VacacionesInner() {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="text-sm font-semibold text-slate-700">Nueva solicitud / registro</h3>
-          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-6">
+          <h3 className="text-sm font-semibold text-slate-700">Registrar vacaciones</h3>
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-5">
             <div className="md:col-span-2">
               <label className={lblCls}>Empleado</label>
               <select className={inputCls} value={form.empleado_id} required
@@ -247,14 +233,6 @@ function VacacionesInner() {
               <input type="date" className={inputCls} value={form.fecha_hasta} min={form.fecha_desde}
                 onChange={(e) => setForm({ ...form, fecha_hasta: e.target.value })} />
             </div>
-            <div>
-              <label className={lblCls}>Modo</label>
-              <select className={inputCls} value={form.modo}
-                onChange={(e) => setForm({ ...form, modo: e.target.value === "solicitud" ? "solicitud" : "admin" })}>
-                <option value="admin">Admin · registrar aprobada</option>
-                <option value="solicitud">Solicitud · queda pendiente</option>
-              </select>
-            </div>
           </div>
           <div className="mt-3">
             <label className={lblCls}>Observación</label>
@@ -270,22 +248,31 @@ function VacacionesInner() {
             )}
             <button type="submit" disabled={saving}
               className="rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-medium text-white disabled:opacity-50 ml-auto">
-              {saving ? "Guardando…" : form.modo === "admin" ? "Registrar (aprobada)" : "Crear solicitud (pendiente)"}
+              {saving ? "Guardando…" : "Registrar"}
             </button>
           </div>
         </form>
       )}
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-1">
-        {(["lista", "saldos"] as const).map((t) => (
-          <button key={t} type="button" onClick={() => setTab(t)}
-            className={`relative -mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
-              tab === t ? "border-[#4FAEB2] text-[#3F8E91]" : "border-transparent text-slate-500 hover:text-slate-700"
-            }`}>
-            {t === "lista" ? "Listado de solicitudes" : "Saldos por empleado"}
-          </button>
-        ))}
+      {/* Tabs + buscador */}
+      <div className="flex items-end justify-between gap-3 flex-wrap border-b border-slate-200 pb-1">
+        <div className="flex items-center gap-2">
+          {(["lista", "saldos"] as const).map((t) => (
+            <button key={t} type="button" onClick={() => setTab(t)}
+              className={`relative -mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+                tab === t ? "border-[#4FAEB2] text-[#3F8E91]" : "border-transparent text-slate-500 hover:text-slate-700"
+              }`}>
+              {t === "lista" ? "Listado" : "Saldos por empleado"}
+            </button>
+          ))}
+        </div>
+        <input
+          type="text"
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar empleado…"
+          className="w-56 rounded-lg border border-slate-200 px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-[#4FAEB2]/30"
+        />
       </div>
 
       {tab === "lista" ? (
@@ -303,12 +290,18 @@ function VacacionesInner() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr><td colSpan={7} className="py-10 text-center text-gray-400">Cargando…</td></tr>
-              ) : solicitudes.length === 0 ? (
-                <tr><td colSpan={7} className="py-10 text-center text-gray-400">Sin solicitudes</td></tr>
-              ) : (
-                solicitudes.map((s) => (
+              {(() => {
+                const q = busqueda.trim().toLowerCase();
+                const filas = q
+                  ? solicitudes.filter((s) => (s.empleado_nombre ?? "").toLowerCase().includes(q))
+                  : solicitudes;
+                if (loading) {
+                  return <tr><td colSpan={7} className="py-10 text-center text-gray-400">Cargando…</td></tr>;
+                }
+                if (filas.length === 0) {
+                  return <tr><td colSpan={7} className="py-10 text-center text-gray-400">{q ? "Ningún empleado coincide" : "Sin registros"}</td></tr>;
+                }
+                return filas.map((s) => (
                   <tr key={s.id} className="hover:bg-[#4FAEB2]/[0.04]">
                     <td className="px-4 py-2.5 font-medium text-gray-800">
                       {s.empleado_nombre ?? "—"}
@@ -320,21 +313,14 @@ function VacacionesInner() {
                     <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-800">{s.dias}</td>
                     <td className="px-4 py-2.5"><EstadoBadge estado={s.estado} /></td>
                     <td className="px-4 py-2.5 text-right">
-                      {s.estado === "pendiente" ? (
-                        <div className="flex justify-end gap-2">
-                          <button onClick={() => void cambiarEstado(s.id, "aprobada")}
-                            className="text-xs text-emerald-700 hover:underline">aprobar</button>
-                          <button onClick={() => void cambiarEstado(s.id, "rechazada")}
-                            className="text-xs text-red-700 hover:underline">rechazar</button>
-                        </div>
-                      ) : s.estado === "aprobada" ? (
+                      {s.estado === "aprobada" ? (
                         <button onClick={() => void cambiarEstado(s.id, "cancelada")}
                           className="text-xs text-red-700 hover:underline">cancelar</button>
                       ) : <span className="text-xs text-slate-400">—</span>}
                     </td>
                   </tr>
-                ))
-              )}
+                ));
+              })()}
             </tbody>
           </table>
         </div>
@@ -353,26 +339,33 @@ function VacacionesInner() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {saldos.length === 0 ? (
-                <tr><td colSpan={7} className="py-10 text-center text-gray-400">Sin empleados activos</td></tr>
-              ) : saldos.map((s) => (
-                <tr key={s.empleado_id} className="hover:bg-[#4FAEB2]/[0.04]">
-                  <td className="px-4 py-2.5 font-medium text-gray-800">
-                    {s.empleado_nombre}
-                    {s.cargo && <span className="block text-[10px] text-slate-400">{s.cargo}</span>}
-                  </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">{s.dias_anuales}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">{s.dias_generados}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">{s.dias_usados}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-amber-700">{s.dias_pendientes_aprobacion}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-emerald-700">{s.dias_disponibles}</td>
-                  <td className="px-4 py-2.5 text-xs text-gray-600 hidden md:table-cell">
-                    {s.proxima_ausencia_desde
-                      ? `${fmtFecha(s.proxima_ausencia_desde)} → ${fmtFecha(s.proxima_ausencia_hasta!)}`
-                      : <span className="text-gray-300">—</span>}
-                  </td>
-                </tr>
-              ))}
+              {(() => {
+                const q = busqueda.trim().toLowerCase();
+                const filas = q
+                  ? saldos.filter((s) => s.empleado_nombre.toLowerCase().includes(q))
+                  : saldos;
+                if (filas.length === 0) {
+                  return <tr><td colSpan={7} className="py-10 text-center text-gray-400">{q ? "Ningún empleado coincide" : "Sin empleados activos"}</td></tr>;
+                }
+                return filas.map((s) => (
+                  <tr key={s.empleado_id} className="hover:bg-[#4FAEB2]/[0.04]">
+                    <td className="px-4 py-2.5 font-medium text-gray-800">
+                      {s.empleado_nombre}
+                      {s.cargo && <span className="block text-[10px] text-slate-400">{s.cargo}</span>}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{s.dias_anuales}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">{s.dias_generados}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">{s.dias_usados}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-amber-700">{s.dias_pendientes_aprobacion}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-emerald-700">{s.dias_disponibles}</td>
+                    <td className="px-4 py-2.5 text-xs text-gray-600 hidden md:table-cell">
+                      {s.proxima_ausencia_desde
+                        ? `${fmtFecha(s.proxima_ausencia_desde)} → ${fmtFecha(s.proxima_ausencia_hasta!)}`
+                        : <span className="text-gray-300">—</span>}
+                    </td>
+                  </tr>
+                ));
+              })()}
             </tbody>
           </table>
         </div>
@@ -396,17 +389,3 @@ function EstadoBadge({ estado }: { estado: Estado }) {
   );
 }
 
-function Kpi({ label, value, tone = "indigo" }: { label: string; value: number; tone?: "indigo" | "amber" | "emerald" | "sky" }) {
-  const cls = {
-    indigo:  "border-indigo-200 bg-indigo-50 text-indigo-800",
-    amber:   "border-amber-200 bg-amber-50 text-amber-800",
-    emerald: "border-emerald-200 bg-emerald-50 text-emerald-800",
-    sky:     "border-sky-200 bg-sky-50 text-sky-800",
-  }[tone];
-  return (
-    <div className={`rounded-xl border ${cls} px-4 py-3`}>
-      <p className="text-[10px] font-semibold uppercase tracking-wider opacity-70">{label}</p>
-      <p className="mt-1 text-2xl font-bold tabular-nums">{value}</p>
-    </div>
-  );
-}
