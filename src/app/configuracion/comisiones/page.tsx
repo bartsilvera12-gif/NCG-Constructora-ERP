@@ -71,7 +71,7 @@ function formatUltimaActualizacion(iso: unknown): string | null {
   try {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return null;
-    return d.toLocaleString("es-PY", { dateStyle: "short", timeStyle: "short" });
+    return d.toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" });
   } catch {
     return null;
   }
@@ -84,7 +84,7 @@ function parseMontoPyg(raw: string, opts?: { nullable?: boolean; label?: string 
 
   const cleaned = value
     .replace(/\u00a0/g, "")
-    .replace(/₲/g, "")
+    .replace(/€/g, "")
     .replace(/(?:PYG|GS)\.?/gi, "")
     .replace(/\s+/g, "");
 
@@ -124,7 +124,9 @@ function parseMontoPyg(raw: string, opts?: { nullable?: boolean; label?: string 
 }
 
 function formatMontoPygNumber(n: number): string {
-  return new Intl.NumberFormat("es-PY", {
+  // Euros: si el valor es entero, sin decimales (50.000); si tiene decimales,
+  // los mostramos (12,50). minimumFractionDigits=0 + maximumFractionDigits=2.
+  return new Intl.NumberFormat("es-ES", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(n);
@@ -150,9 +152,9 @@ function formatMontoPygEditable(raw: string): string {
 function formatMontoPygResumen(raw: string): string {
   try {
     const n = parseMontoPyg(raw, { nullable: true });
-    return n == null ? "—" : `₲ ${formatMontoPygNumber(n)}`;
+    return n == null ? "—" : `€ ${formatMontoPygNumber(n)}`;
   } catch {
-    return raw.trim() ? `₲ ${raw.trim()}` : "—";
+    return raw.trim() ? `€ ${raw.trim()}` : "—";
   }
 }
 
@@ -187,7 +189,7 @@ export default function ConfiguracionComisionesPage() {
   const [nombre, setNombre] = useState("Política principal");
   const [activo, setActivo] = useState(true);
   const [baseCalculo, setBaseCalculo] = useState<string>("pago_registrado");
-  const [timezone, setTimezone] = useState("America/Asuncion");
+  const [timezone, setTimezone] = useState("Europe/Madrid");
   const [modoPeriodo, setModoPeriodo] = useState("mensual_penultimo_dia_habil");
   const [escalas, setEscalas] = useState<EscalaRow[]>([ESCALA_FILA_VACIA]);
 
@@ -215,7 +217,7 @@ export default function ConfiguracionComisionesPage() {
       setNombre(typeof pol.nombre === "string" ? pol.nombre : "Política principal");
       setActivo(pol.activo !== false);
       setBaseCalculo(typeof pol.base_calculo === "string" ? pol.base_calculo : "pago_registrado");
-      setTimezone(typeof pol.timezone === "string" ? pol.timezone : "America/Asuncion");
+      setTimezone(typeof pol.timezone === "string" ? pol.timezone : "Europe/Madrid");
       setModoPeriodo(
         typeof pol.modo_periodo === "string" ? pol.modo_periodo : "mensual_penultimo_dia_habil"
       );
@@ -335,7 +337,7 @@ export default function ConfiguracionComisionesPage() {
           nombre: nombre.trim(),
           activo,
           base_calculo: baseCalculo,
-          timezone: timezone.trim() || "America/Asuncion",
+          timezone: timezone.trim() || "Europe/Madrid",
           modo_periodo: modoPeriodo.trim() || "mensual_penultimo_dia_habil",
           escalas: escalasPayload,
         }),
@@ -535,7 +537,7 @@ export default function ConfiguracionComisionesPage() {
           <ConfigFormCard>
             <ConfigSectionTitle>Escalas</ConfigSectionTitle>
             <p className="mb-3 text-sm text-slate-600">
-              Rangos de monto en guaraníes y porcentaje de comisión. Ejemplo: 50.000.000. Dejá «Hasta» vacío para
+              Rangos de monto en euros y porcentaje de comisión. Ejemplo: 50.000. Dejá «Hasta» vacío para
               indicar sin techo en ese tramo.
             </p>
             <div className="space-y-3">
@@ -545,11 +547,11 @@ export default function ConfiguracionComisionesPage() {
                   className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50/80 p-3 sm:grid-cols-12 sm:items-end"
                 >
                   <div className="sm:col-span-3">
-                    <label className={F_LABEL}>Desde · monto en guaraníes</label>
+                    <label className={F_LABEL}>Desde · monto en euros (€)</label>
                     <input
                       type="text"
                       inputMode="numeric"
-                      placeholder="50.000.000"
+                      placeholder="50.000"
                       value={row.desde_monto}
                       onChange={(e) => {
                         const v = e.target.value;

@@ -101,12 +101,12 @@ type PreviewPayload = {
 };
 
 function fmtMoney(n: number): string {
-  return new Intl.NumberFormat("es-PY", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
+  return new Intl.NumberFormat("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 }
 
 function fmtPct(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return "—";
-  return `${new Intl.NumberFormat("es-PY", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n)}%`;
+  return `${new Intl.NumberFormat("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n)}%`;
 }
 
 function formatDate(iso: string | null): string {
@@ -140,7 +140,7 @@ function faltaEscalaLabel(r: VendedorRow): string {
   if (r.max_escala_alcanzada) return "Ya estás en el tramo más alto.";
   if (r.falta_para_siguiente_escala == null) return "Sin escala siguiente configurada.";
   if (r.falta_para_siguiente_escala <= 0) return "Ya alcanzaste la siguiente escala.";
-  return `Te faltan ₲ ${fmtMoney(r.falta_para_siguiente_escala)} para llegar a la siguiente escala.`;
+  return `Te faltan € ${fmtMoney(r.falta_para_siguiente_escala)} para llegar a la siguiente escala.`;
 }
 
 /** Texto claro para KPIs de movimientos sin vendedor (sin exponer nombres de columnas técnicas). */
@@ -219,24 +219,24 @@ function SellerTotalsSummary({ row }: { row: VendedorRow }) {
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div>
           <p className="text-xs text-slate-500">Base comisionable</p>
-          <p className="text-base font-bold tabular-nums text-slate-900">₲ {fmtMoney(row.revenue_base)}</p>
+          <p className="text-base font-bold tabular-nums text-slate-900">€ {fmtMoney(row.revenue_base)}</p>
         </div>
         <div>
           <p className="text-xs text-slate-500">Comisión estimada</p>
-          <p className="text-base font-bold tabular-nums text-emerald-800">₲ {fmtMoney(row.comision_estimada)}</p>
+          <p className="text-base font-bold tabular-nums text-emerald-800">€ {fmtMoney(row.comision_estimada)}</p>
         </div>
         <div>
           <p className="text-xs text-slate-500">Cobrado</p>
-          <p className="text-base font-bold tabular-nums text-slate-900">₲ {fmtMoney(row.cobrado_periodo_total ?? 0)}</p>
+          <p className="text-base font-bold tabular-nums text-slate-900">€ {fmtMoney(row.cobrado_periodo_total ?? 0)}</p>
         </div>
         <div>
           <p className="text-xs text-slate-500">Pendiente de cobro</p>
-          <p className="text-base font-bold tabular-nums text-slate-900">₲ {fmtMoney(row.saldo_pendiente_total ?? 0)}</p>
+          <p className="text-base font-bold tabular-nums text-slate-900">€ {fmtMoney(row.saldo_pendiente_total ?? 0)}</p>
         </div>
         <div>
           <p className="text-xs text-slate-500">Pendiente por comisionar</p>
           <p className="text-base font-bold tabular-nums text-slate-900">
-            ₲ {fmtMoney(row.pendiente_por_comisionar_total ?? 0)}
+            € {fmtMoney(row.pendiente_por_comisionar_total ?? 0)}
           </p>
         </div>
       </div>
@@ -261,26 +261,26 @@ function SellerMovimientosList({ row }: { row: VendedorRow }) {
             </div>
             <div className="text-left sm:text-right">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Comisión estimada</p>
-              <p className="text-sm font-bold tabular-nums text-emerald-800">₲ {fmtMoney(ln.comision_estimada_linea)}</p>
+              <p className="text-sm font-bold tabular-nums text-emerald-800">€ {fmtMoney(ln.comision_estimada_linea)}</p>
             </div>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <p className="text-xs text-slate-500">Base comisionable</p>
-              <p className="text-sm font-semibold tabular-nums text-slate-900">₲ {fmtMoney(ln.monto_base)}</p>
+              <p className="text-sm font-semibold tabular-nums text-slate-900">€ {fmtMoney(ln.monto_base)}</p>
             </div>
             <div>
               <p className="text-xs text-slate-500">Cobrado</p>
-              <p className="text-sm font-semibold tabular-nums text-slate-900">₲ {fmtMoney(ln.cobrado_periodo ?? 0)}</p>
+              <p className="text-sm font-semibold tabular-nums text-slate-900">€ {fmtMoney(ln.cobrado_periodo ?? 0)}</p>
             </div>
             <div>
               <p className="text-xs text-slate-500">Pendiente</p>
-              <p className="text-sm font-semibold tabular-nums text-slate-900">₲ {fmtMoney(ln.saldo_pendiente ?? 0)}</p>
+              <p className="text-sm font-semibold tabular-nums text-slate-900">€ {fmtMoney(ln.saldo_pendiente ?? 0)}</p>
             </div>
             <div>
               <p className="text-xs text-slate-500">Pendiente por comisionar</p>
               <p className="text-sm font-semibold tabular-nums text-slate-900">
-                ₲ {fmtMoney(ln.pendiente_por_comisionar ?? 0)}
+                € {fmtMoney(ln.pendiente_por_comisionar ?? 0)}
               </p>
             </div>
           </div>
@@ -401,7 +401,7 @@ function renderVendedorView({
               <div>
                 <p className="font-semibold text-slate-900">Mis clientes y movimientos</p>
                 <p className="text-xs text-slate-500">
-                  {sellerRow.cantidad_movimientos} movimientos · Pendiente de cobro ₲ {fmtMoney(sellerRow.saldo_pendiente_total ?? 0)}
+                  {sellerRow.cantidad_movimientos} movimientos · Pendiente de cobro € {fmtMoney(sellerRow.saldo_pendiente_total ?? 0)}
                 </p>
               </div>
               <ChevronDown className="h-5 w-5 shrink-0 text-slate-400 transition-transform group-open:rotate-180" />
