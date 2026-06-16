@@ -53,11 +53,15 @@ export function diasGenerados(
   const ingreso = new Date(`${fechaIngresoIso}T00:00:00Z`);
   const inicio = ingreso > inicioAño ? ingreso : inicioAño;
   if (inicio > hoy) return 0;
-  // Meses trabajados desde `inicio` hasta hoy (truncado).
-  const meses =
+  // Meses COMPLETOS cumplidos desde `inicio` hasta hoy.
+  // Solo cuenta un mes cuando ya pasó el día del mes correspondiente al inicio.
+  // Ej. inicio 14/06, hoy 16/06 → 0 meses cumplidos. Hoy 14/07 → 1 mes.
+  // Redondeo hacia abajo (Math.floor) para no regalar fracciones.
+  let meses =
     (hoy.getUTCFullYear() - inicio.getUTCFullYear()) * 12 +
-    (hoy.getUTCMonth() - inicio.getUTCMonth()) +
-    (hoy.getUTCDate() >= inicio.getUTCDate() ? 1 : 0);
-  const generado = Math.round((diasAnuales * Math.min(12, meses)) / 12);
+    (hoy.getUTCMonth() - inicio.getUTCMonth());
+  if (hoy.getUTCDate() < inicio.getUTCDate()) meses -= 1;
+  meses = Math.max(0, Math.min(12, meses));
+  const generado = Math.floor((diasAnuales * meses) / 12);
   return Math.max(0, Math.min(diasAnuales, generado));
 }
