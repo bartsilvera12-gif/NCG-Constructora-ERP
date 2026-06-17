@@ -50,12 +50,11 @@ type Gasto = {
 };
 
 const TABS = [
-  { id: "resumen", label: "Resumen financiero" },
+  { id: "rentabilidad", label: "Rentabilidad" },
   { id: "materiales", label: "Materiales" },
   { id: "compras", label: "Compras" },
   { id: "gastos", label: "Gastos" },
   { id: "mano_obra", label: "Mano de obra" },
-  { id: "rentabilidad", label: "Rentabilidad" },
   { id: "trazabilidad", label: "Trazabilidad" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
@@ -84,7 +83,7 @@ function clienteNombre(p: Proyecto): string {
 }
 
 export default function ControlObraDetalleClient({ projectId }: { projectId: string }) {
-  const [tab, setTab] = useState<TabId>("resumen");
+  const [tab, setTab] = useState<TabId>("rentabilidad");
   const [proyecto, setProyecto] = useState<Proyecto | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -149,12 +148,11 @@ export default function ControlObraDetalleClient({ projectId }: { projectId: str
         ))}
       </div>
 
-      {tab === "resumen" ? <RentabilidadObra projectId={projectId} /> : null}
+      {tab === "rentabilidad" ? <RentabilidadObra projectId={projectId} /> : null}
       {tab === "materiales" ? <MaterialesObra projectId={projectId} /> : null}
       {tab === "compras" ? <ComprasTab projectId={projectId} /> : null}
       {tab === "gastos" ? <GastosTab projectId={projectId} /> : null}
       {tab === "mano_obra" ? <PersonalObra projectId={projectId} /> : null}
-      {tab === "rentabilidad" ? <RentabilidadObra projectId={projectId} /> : null}
       {tab === "trazabilidad" ? <TrazabilidadTab projectId={projectId} /> : null}
     </div>
   );
@@ -168,11 +166,18 @@ function ComprasTab({ projectId }: { projectId: string }) {
   useEffect(() => {
     fetchWithSupabaseSession("/api/compras", { cache: "no-store" })
       .then((r) => r.json())
-      .then((j: { success?: boolean; data?: Compra[]; error?: string }) => {
-        if (j?.success && j.data) {
-          setRows(j.data.filter((c) => c.proyecto_id === projectId));
-        } else setErr(j?.error ?? "No se pudo cargar compras");
-      })
+      .then(
+        (j: {
+          success?: boolean;
+          data?: { compras?: Compra[] } | Compra[];
+          error?: string;
+        }) => {
+          if (j?.success && j.data) {
+            const arr = Array.isArray(j.data) ? j.data : j.data.compras ?? [];
+            setRows(arr.filter((c) => c.proyecto_id === projectId));
+          } else setErr(j?.error ?? "No se pudo cargar compras");
+        }
+      )
       .catch((e) => setErr(e instanceof Error ? e.message : "Error"))
       .finally(() => setLoading(false));
   }, [projectId]);
@@ -265,8 +270,9 @@ function GastosTab({ projectId }: { projectId: string }) {
     fetchWithSupabaseSession("/api/gastos", { cache: "no-store" })
       .then((r) => r.json())
       .then((j: { success?: boolean; data?: Gasto[]; error?: string }) => {
-        if (j?.success && j.data) {
-          setRows(j.data.filter((g) => g.proyecto_id === projectId));
+        if (j?.success) {
+          const arr = Array.isArray(j.data) ? j.data : [];
+          setRows(arr.filter((g) => g.proyecto_id === projectId));
         } else setErr(j?.error ?? "No se pudo cargar gastos");
       })
       .catch((e) => setErr(e instanceof Error ? e.message : "Error"))
@@ -367,12 +373,20 @@ function TrazabilidadTab({ projectId }: { projectId: string }) {
           success?: boolean;
           data?: { usados?: Array<{ fecha: string; producto_nombre?: string; cantidad: number; costo_total: number }> };
         };
-        const jCom = (await rCom.json()) as { success?: boolean; data?: Compra[] };
+        const jCom = (await rCom.json()) as {
+          success?: boolean;
+          data?: { compras?: Compra[] } | Compra[];
+        };
         const jGas = (await rGas.json()) as { success?: boolean; data?: Gasto[] };
         const jPer = (await rPer.json()) as {
           success?: boolean;
           data?: { asignaciones?: Array<{ fecha: string; horas: number; costo_total: number; empleado_nombre: string | null }> };
         };
+
+        const comprasArr: Compra[] = Array.isArray(jCom.data)
+          ? jCom.data
+          : jCom.data?.compras ?? [];
+        const gastosArr: Gasto[] = Array.isArray(jGas.data) ? jGas.data : [];
 
         const out: EventoTraza[] = [];
         for (const u of jMat.data?.usados ?? []) {
@@ -384,7 +398,7 @@ function TrazabilidadTab({ projectId }: { projectId: string }) {
             monto: u.costo_total,
           });
         }
-        for (const c of (jCom.data ?? []).filter((c) => c.proyecto_id === projectId)) {
+        for (const c of comprasArr.filter((c) => c.proyecto_id === projectId)) {
           out.push({
             fecha: c.fecha ?? "",
             tipo: "compra",
@@ -393,7 +407,7 @@ function TrazabilidadTab({ projectId }: { projectId: string }) {
             monto: c.total ?? null,
           });
         }
-        for (const g of (jGas.data ?? []).filter((g) => g.proyecto_id === projectId)) {
+        for (const g of gastosArr.filter((g) => g.proyecto_id === projectId)) {
           out.push({
             fecha: g.fecha ?? "",
             tipo: "gasto",
