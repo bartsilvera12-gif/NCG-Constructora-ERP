@@ -798,6 +798,16 @@ function ProjectCardView({
             <div className="col-span-2">
               <MetaItem label="Actividad" value={fmtDateTime(p.last_activity_at)} />
             </div>
+            {Number(p.monto_vendido ?? 0) > 0 ? (
+              <div className="col-span-2 flex items-center justify-between border-t border-slate-200 pt-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  Monto
+                </span>
+                <span className="text-xs font-semibold tabular-nums text-emerald-700">
+                  {fmtPedidoTotal(p.monto_vendido as number | string | null | undefined)}
+                </span>
+              </div>
+            ) : null}
           </div>
         )}
       </button>
