@@ -7,6 +7,7 @@ import MontoInput from "@/components/ui/MontoInput";
 import PageHeader from "@/components/ui/PageHeader";
 import ProductPickerModal, { type AgregarVentaPayload } from "@/components/inventario/ProductPickerModal";
 import PagoDetalleModal from "@/components/ventas/PagoDetalleModal";
+import ClientePicker from "@/components/ventas/ClientePicker";
 import { saveVenta } from "@/lib/ventas/storage";
 import type { TipoIvaVenta, TipoVenta, MonedaVenta, LineaVenta, MetodoPago, TipoPrecioVenta, PagoDetalleVenta } from "@/lib/ventas/types";
 import { parseImporte } from "@/lib/utils/money";
@@ -1031,8 +1032,26 @@ function DatosObraSection({ meta, setMeta }: { meta: ObraMeta; setMeta: React.Di
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
             <label className={PRESUP_LABEL}>Cliente / contacto <span className="text-red-500">*</span></label>
-            <input value={meta.cliente_contacto} onChange={(e) => setField("cliente_contacto", e.target.value)}
-              placeholder="Ej. Carlos Pérez" className={PRESUP_INPUT} />
+            <ClientePicker
+              value={meta.cliente_contacto}
+              selectedId={meta.cliente_id}
+              required
+              placeholder="Buscar cliente por nombre, email, teléfono…"
+              onSelect={(c) => {
+                setMeta((p) => ({
+                  ...p,
+                  cliente_id: c.id,
+                  cliente_contacto: c.nombre,
+                  // Solo pisamos los campos vacíos: si el usuario ya cargó algo
+                  // a mano, lo respetamos.
+                  cliente_telefono: p.cliente_telefono.trim() ? p.cliente_telefono : c.telefono,
+                  cliente_email: p.cliente_email.trim() ? p.cliente_email : c.email,
+                  cliente_zona: p.cliente_zona.trim() ? p.cliente_zona : c.ciudad,
+                }));
+              }}
+              onClear={() => setField("cliente_id", "")}
+              onFreeText={(txt) => setField("cliente_contacto", txt)}
+            />
           </div>
           <div>
             <label className={PRESUP_LABEL}>Teléfono</label>
