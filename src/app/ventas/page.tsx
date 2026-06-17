@@ -156,7 +156,17 @@ export default function VentasPage() {
     let cancelled = false;
     getVentas().then((data) => {
       if (cancelled) return;
-      const ordenadas = [...data].sort((a, b) => {
+      // /ventas SOLO lista ventas reales. Los presupuestos viven en /presupuestos
+      // mientras están pendientes/rechazados. Solo aparecen acá una vez que se
+      // aprueban (en cuyo momento pasan a ser obra) o se rechazan, para no
+      // mezclar cotizaciones con ingresos reales.
+      const soloVentasRealesYAprobados = data.filter((v) => {
+        const tipoDoc = v.tipo_documento ?? "venta";
+        if (tipoDoc !== "presupuesto") return true;
+        const estadoP = v.estado_presupuesto ?? "pendiente";
+        return estadoP === "aprobado" || estadoP === "convertido";
+      });
+      const ordenadas = soloVentasRealesYAprobados.sort((a, b) => {
         const ta = new Date(a.fecha).getTime();
         const tb = new Date(b.fecha).getTime();
         return tb - ta || b.numero_control.localeCompare(a.numero_control);
