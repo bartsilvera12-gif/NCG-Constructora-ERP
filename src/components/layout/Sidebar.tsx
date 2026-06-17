@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -269,6 +269,13 @@ function NavItem({
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // /ventas/nueva?tipo=presupuesto vive en el módulo Presupuestos visualmente,
+  // aunque la ruta sea /ventas/*. Detectamos el modo para resaltar el item
+  // correcto y evitar que "Ventas" se marque activo cuando el usuario está
+  // cargando un presupuesto.
+  const tipoQuery = searchParams?.get("tipo") ?? "";
+  const esPresupuestoRoute = (pathname ?? "").startsWith("/ventas/nueva") && tipoQuery === "presupuesto";
   const [modulos, setModulos] = useState<ModuloEmpresa[]>([]);
   const [inactiveSlugsList, setInactiveSlugsList] = useState<string[]>([]);
   const [strictAllowlist, setStrictAllowlist] = useState(false);
@@ -418,6 +425,11 @@ export default function Sidebar() {
   const isActive = (slug: string, href: string) => {
     const p = pathname ?? "";
     if (slug === "dashboard") return p === "/";
+    // Caso especial: /ventas/nueva?tipo=presupuesto pertenece visualmente al
+    // módulo Presupuestos (href=/presupuestos), no a Ventas. Sin esto el item
+    // "Ventas" se marca activo al cargar un presupuesto porque el pathname
+    // empieza con /ventas/.
+    if (esPresupuestoRoute) return href === "/presupuestos";
     return p === href || p.startsWith(href + "/");
   };
 

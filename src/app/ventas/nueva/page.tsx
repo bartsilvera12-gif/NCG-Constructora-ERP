@@ -382,8 +382,8 @@ export default function NuevaVentaPage() {
           : esObra ? "Venta de obra al cliente: descuenta stock, genera ticket de cobro y crea la obra automáticamente al guardar."
           : undefined
         }
-        backHref="/ventas"
-        backLabel="Ventas"
+        backHref={esPresupuesto ? "/presupuestos" : "/ventas"}
+        backLabel={esPresupuesto ? "Presupuestos" : "Ventas"}
       />
 
       {esPresupuesto && (
