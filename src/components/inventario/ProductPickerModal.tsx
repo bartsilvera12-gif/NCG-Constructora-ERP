@@ -218,12 +218,8 @@ export default function ProductPickerModal({
     iva === "10%" ? 0.10 :
     iva === "5%"  ? 0.05 :
     iva === "4%"  ? 0.04 : 0;
-  // Si el precio ingresado YA incluye IVA, se extrae del bruto. Si no, se suma encima.
-  const baseImponible = tasaIva > 0 && precioIncluyeIva ? brutoLinea / (1 + tasaIva) : brutoLinea;
-  const ivaMonto = tasaIva > 0
-    ? (precioIncluyeIva ? brutoLinea - baseImponible : baseImponible * tasaIva)
-    : 0;
-  const totalLinea = baseImponible + ivaMonto;
+  // El desglose IVA del panel se calcula inline donde se muestra; el "Total a
+  // cobrar" siempre es brutoLinea porque el precio del catálogo ya incluye IVA.
 
   // Mobile: pt-3 (gana viewport vertical valioso, evita el modal "cortado")
   // y pt-12 en sm+ donde si hay espacio para el aire decorativo.
@@ -476,20 +472,30 @@ export default function ProductPickerModal({
                     </div>
                   </div>
 
-                  <div className="text-xs text-slate-500 space-y-0.5 pt-1">
-                    <div className="flex justify-between">
-                      <span>Base imponible</span>
-                      <span className="tabular-nums">{formatGs(baseImponible)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>IVA ({iva === "EXENTA" ? "Exento" : iva})</span>
-                      <span className="tabular-nums">{formatGs(ivaMonto)}</span>
-                    </div>
-                    <div className="flex justify-between font-bold text-slate-800 pt-1 border-t border-slate-200">
-                      <span>{esPresupuesto ? "Total presupuestado" : "Total a cobrar"} (IVA incl.)</span>
-                      <span className="tabular-nums">{formatGs(totalLinea)}</span>
-                    </div>
-                  </div>
+                  {(() => {
+                    // El precio ya incluye IVA: el "Total a cobrar" es exactamente
+                    // el bruto (precio × cantidad). La fila IVA es INFORMATIVA —
+                    // muestra el componente fiscal calculado sobre el precio
+                    // (bruto × tasa), no se suma al total. Útil para que el
+                    // usuario vea cuánto IVA contiene el precio que está cobrando.
+                    const ivaInfo = brutoLinea * tasaIva;
+                    return (
+                      <div className="text-xs text-slate-500 space-y-0.5 pt-1">
+                        <div className="flex justify-between">
+                          <span>Total</span>
+                          <span className="tabular-nums">{formatGs(brutoLinea)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>IVA ({iva === "EXENTA" ? "Exento" : iva})</span>
+                          <span className="tabular-nums">{ivaInfo > 0 ? formatGs(ivaInfo) : "—"}</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-slate-800 pt-1 border-t border-slate-200">
+                          <span>{esPresupuesto ? "Total presupuestado" : "Total a cobrar"}</span>
+                          <span className="tabular-nums">{formatGs(brutoLinea)}</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
                 </div>
                 {/* Footer sticky con el boton de accion principal.
