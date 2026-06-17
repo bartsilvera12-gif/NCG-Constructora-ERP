@@ -174,7 +174,6 @@ export default function ControlObraDetalleClient({ projectId }: { projectId: str
       {tab === "compras" ? <ComprasTab projectId={projectId} /> : null}
       {tab === "gastos" ? <GastosTab projectId={projectId} /> : null}
       {tab === "mano_obra" ? <PersonalObra projectId={projectId} /> : null}
-      {tab === "trazabilidad" ? <TrazabilidadTab projectId={projectId} /> : null}
     </div>
   );
 }
@@ -367,157 +366,19 @@ function GastosTab({ projectId }: { projectId: string }) {
   );
 }
 
-type EventoTraza = {
-  fecha: string;
-  tipo: "material" | "compra" | "gasto" | "horas";
-  titulo: string;
-  detalle?: string;
-  monto?: number | null;
-};
-
-function TrazabilidadTab({ projectId }: { projectId: string }) {
-  const [eventos, setEventos] = useState<EventoTraza[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [rMat, rCom, rGas, rPer] = await Promise.all([
-          fetchWithSupabaseSession(`/api/proyectos/${projectId}/materiales`, { cache: "no-store" }),
-          fetchWithSupabaseSession("/api/compras", { cache: "no-store" }),
-          fetchWithSupabaseSession("/api/gastos", { cache: "no-store" }),
-          fetchWithSupabaseSession(`/api/proyectos/${projectId}/personal`, { cache: "no-store" }),
-        ]);
-        const jMat = (await rMat.json()) as {
-          success?: boolean;
-          data?: { usados?: Array<{ fecha: string; producto_nombre?: string; cantidad: number; costo_total: number }> };
-        };
-        const jCom = (await rCom.json()) as {
-          success?: boolean;
-          data?: { compras?: Compra[] } | Compra[];
-        };
-        const jGas = (await rGas.json()) as { success?: boolean; data?: Gasto[] };
-        const jPer = (await rPer.json()) as {
-          success?: boolean;
-          data?: { asignaciones?: Array<{ fecha: string; horas: number; costo_total: number; empleado_nombre: string | null }> };
-        };
-
-        const comprasArr: Compra[] = Array.isArray(jCom.data)
-          ? jCom.data
-          : jCom.data?.compras ?? [];
-        const gastosArr: Gasto[] = Array.isArray(jGas.data) ? jGas.data : [];
-
-        const out: EventoTraza[] = [];
-        for (const u of jMat.data?.usados ?? []) {
-          out.push({
-            fecha: u.fecha,
-            tipo: "material",
-            titulo: `Material: ${u.producto_nombre ?? "—"}`,
-            detalle: `${u.cantidad} u.`,
-            monto: u.costo_total,
-          });
-        }
-        for (const c of comprasArr.filter((c) => c.proyecto_id === projectId)) {
-          out.push({
-            fecha: c.fecha ?? "",
-            tipo: "compra",
-            titulo: `Compra: ${c.proveedor_nombre ?? c.proveedor?.nombre ?? "—"}`,
-            detalle: c.numero_documento ?? undefined,
-            monto: c.total ?? null,
-          });
-        }
-        for (const g of gastosArr.filter((g) => g.proyecto_id === projectId)) {
-          out.push({
-            fecha: g.fecha ?? "",
-            tipo: "gasto",
-            titulo: `Gasto: ${g.concepto ?? "—"}`,
-            detalle: g.categoria ?? undefined,
-            monto: g.monto ?? null,
-          });
-        }
-        for (const a of jPer.data?.asignaciones ?? []) {
-          out.push({
-            fecha: a.fecha,
-            tipo: "horas",
-            titulo: `Horas: ${a.empleado_nombre ?? "—"}`,
-            detalle: `${a.horas} h`,
-            monto: a.costo_total,
-          });
-        }
-        out.sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
-        if (!cancelled) setEventos(out);
-      } catch (e) {
-        if (!cancelled) setErr(e instanceof Error ? e.message : "Error");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [projectId]);
-
-  if (loading) return <div className="text-sm text-slate-500">Cargando trazabilidad…</div>;
-  if (err)
-    return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-        {err}
-      </div>
-    );
-  if (eventos.length === 0) return <VacioControl tipo="trazabilidad" />;
-
-  const colorTipo: Record<EventoTraza["tipo"], string> = {
-    material: "border-sky-300 bg-sky-50 text-sky-800",
-    compra: "border-violet-300 bg-violet-50 text-violet-800",
-    gasto: "border-amber-300 bg-amber-50 text-amber-800",
-    horas: "border-emerald-300 bg-emerald-50 text-emerald-800",
-  };
-
-  return (
-    <ol className="space-y-2">
-      {eventos.map((e, i) => (
-        <li
-          key={i}
-          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm"
-        >
-          <div className="flex items-center gap-3">
-            <span
-              className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${colorTipo[e.tipo]}`}
-            >
-              {e.tipo}
-            </span>
-            <div>
-              <div className="font-medium text-slate-900">{e.titulo}</div>
-              <div className="text-xs text-slate-500">
-                {fmtFecha(e.fecha)}
-                {e.detalle ? ` · ${e.detalle}` : ""}
-              </div>
-            </div>
-          </div>
-          {e.monto != null ? (
-            <span className="font-semibold tabular-nums text-slate-800">{fmtEur(e.monto)}</span>
-          ) : null}
-        </li>
-      ))}
-    </ol>
-  );
-}
-
 function VacioControl({
   tipo,
   accion,
   accionLabel,
 }: {
-  tipo: "compras" | "gastos" | "trazabilidad";
+  tipo: "compras" | "gastos";
   accion?: string;
   accionLabel?: string;
 }) {
   return (
     <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-600">
       <p className="font-medium text-slate-800">
-        Todavía no hay {tipo === "trazabilidad" ? "eventos registrados" : `${tipo} imputados`} a esta obra.
+        Todavía no hay {tipo} imputados a esta obra.
       </p>
       {accion ? (
         <Link
