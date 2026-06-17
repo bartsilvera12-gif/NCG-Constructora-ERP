@@ -60,7 +60,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     // 2) Usados reales: movimientos SALIDA imputados a esta obra.
     const { data: movsRaw, error: e2 } = await ctx.supabase
       .from("movimientos_inventario")
-      .select("producto_id, producto_nombre, producto_sku, cantidad, costo_unitario, fecha, motivo, observacion")
+      .select("producto_id, producto_nombre, producto_sku, cantidad, costo_unitario, fecha, motivo, observacion, usuario_nombre")
       .eq("empresa_id", empresaId)
       .eq("proyecto_id", id)
       .eq("tipo", "SALIDA")
@@ -75,6 +75,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       fecha: string;
       motivo: string | null;
       observacion: string | null;
+      usuario_nombre: string | null;
     }>).map((m) => ({
       producto_id: m.producto_id,
       producto_nombre: m.producto_nombre ?? "",
@@ -85,6 +86,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       fecha: m.fecha,
       motivo: m.motivo,
       observacion: m.observacion,
+      usuario_nombre: m.usuario_nombre,
     }));
 
     // 3) Combinado: estimado vs usado por producto_id (o por nombre si no hay id).

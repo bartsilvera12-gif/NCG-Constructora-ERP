@@ -53,15 +53,21 @@ function formatFecha(iso: string) {
 const inputFilterClass =
   "border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400 transition-colors bg-white";
 
+type ProyectoLite = { id: string; titulo: string };
+
 export default function MovimientosPage() {
   const searchParams = useSearchParams();
   const productoFiltro = searchParams?.get("producto") ?? "";
+  const proyectoFiltroQuery = searchParams?.get("proyecto_id") ?? "";
   const [todos, setTodos] = useState<MovimientoInventario[]>([]);
+  const [proyectos, setProyectos] = useState<ProyectoLite[]>([]);
 
   // Filtros
   const [busqueda, setBusqueda] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<TipoMovimiento | "">("");
   const [filtroOrigen, setFiltroOrigen] = useState<OrigenMovimiento | "">("");
+  const [filtroMotivo, setFiltroMotivo] = useState<string>("");
+  const [filtroProyecto, setFiltroProyecto] = useState<string>(proyectoFiltroQuery);
   const [fechaDesde, setFechaDesde] = useState("");  // "YYYY-MM-DD"
   const [fechaHasta, setFechaHasta] = useState(""); // "YYYY-MM-DD"
 
@@ -70,8 +76,21 @@ export default function MovimientosPage() {
     getMovimientos().then((data) => {
       if (!cancelled) setTodos(data);
     });
+    fetch("/api/proyectos", { credentials: "include", cache: "no-store" })
+      .then((r) => r.json())
+      .then((j: { success?: boolean; data?: { id: string; titulo: string }[] }) => {
+        if (!cancelled && j.success && Array.isArray(j.data)) {
+          setProyectos(j.data.map((p) => ({ id: p.id, titulo: p.titulo })));
+        }
+      })
+      .catch(() => { /* sin proyectos: el select queda vacío */ });
     return () => { cancelled = true; };
   }, []);
+
+  // Si el query param cambia (p. ej. navegación desde obra), reflejarlo.
+  useEffect(() => {
+    setFiltroProyecto(proyectoFiltroQuery);
+  }, [proyectoFiltroQuery]);
 
   const filtrados = todos.filter((m) => {
     const texto = busqueda.toLowerCase();
@@ -81,6 +100,8 @@ export default function MovimientosPage() {
       m.producto_sku.toLowerCase().includes(texto);
     const coincideTipo = filtroTipo === "" || m.tipo === filtroTipo;
     const coincideOrigen = filtroOrigen === "" || m.origen === filtroOrigen;
+    const coincideMotivo = filtroMotivo === "" || m.motivo === filtroMotivo;
+    const coincideProyecto = filtroProyecto === "" || m.proyecto_id === filtroProyecto;
     const coincideProducto = productoFiltro === "" || m.producto_id === productoFiltro;
 
     // Compara solo la parte de fecha (YYYY-MM-DD) del ISO string del movimiento
@@ -88,10 +109,15 @@ export default function MovimientosPage() {
     const coincideDesde = fechaDesde === "" || fechaMov >= fechaDesde;
     const coincideHasta = fechaHasta === "" || fechaMov <= fechaHasta;
 
-    return coincideTexto && coincideTipo && coincideOrigen && coincideProducto && coincideDesde && coincideHasta;
+    return coincideTexto && coincideTipo && coincideOrigen && coincideMotivo && coincideProyecto && coincideProducto && coincideDesde && coincideHasta;
   });
   const nombreProductoFiltrado = productoFiltro
     ? todos.find((m) => m.producto_id === productoFiltro)?.producto_nombre ?? null
+    : null;
+  const nombreProyectoFiltrado = filtroProyecto
+    ? proyectos.find((p) => p.id === filtroProyecto)?.titulo
+      ?? todos.find((m) => m.proyecto_id === filtroProyecto)?.proyecto_titulo
+      ?? null
     : null;
 
   return (
@@ -119,6 +145,12 @@ export default function MovimientosPage() {
           {productoFiltro && (
             <span className="inline-flex items-center gap-2 rounded-full border border-[#4FAEB2]/30 bg-[#E5F4F4] px-3 py-1 text-xs font-medium text-[#3F8E91]">
               Filtrando: {nombreProductoFiltrado ?? "producto"}
+              <Button href="/inventario/movimientos" variant="ghost" size="sm">Quitar</Button>
+            </span>
+          )}
+          {proyectoFiltroQuery && (
+            <span className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800">
+              Obra: {nombreProyectoFiltrado ?? "obra seleccionada"}
               <Button href="/inventario/movimientos" variant="ghost" size="sm">Quitar</Button>
             </span>
           )}
@@ -157,6 +189,29 @@ export default function MovimientosPage() {
             <option value="venta">Venta</option>
             <option value="ajuste_manual">Ajuste manual</option>
           </select>
+          <select
+            value={filtroMotivo}
+            onChange={(e) => setFiltroMotivo(e.target.value)}
+            className={inputFilterClass}
+          >
+            <option value="">Todos los motivos</option>
+            <option value="uso_obra">Uso en obra</option>
+            <option value="consumo_interno">Consumo interno</option>
+            <option value="rotura">Rotura / pérdida</option>
+            <option value="ajuste">Ajuste</option>
+            <option value="entrega_cuadrilla">Entrega a cuadrilla</option>
+            <option value="transferencia_vehiculo">Transferencia a vehículo</option>
+          </select>
+          <select
+            value={filtroProyecto}
+            onChange={(e) => setFiltroProyecto(e.target.value)}
+            className={inputFilterClass}
+          >
+            <option value="">Todas las obras</option>
+            {proyectos.map((p) => (
+              <option key={p.id} value={p.id}>{p.titulo}</option>
+            ))}
+          </select>
           <div className="flex items-center gap-2">
             <label className="text-xs text-gray-400 whitespace-nowrap">Desde</label>
             <input
@@ -177,12 +232,14 @@ export default function MovimientosPage() {
               className={`${inputFilterClass} w-full`}
             />
           </div>
-          {(busqueda || filtroTipo || filtroOrigen || fechaDesde || fechaHasta) && (
+          {(busqueda || filtroTipo || filtroOrigen || filtroMotivo || filtroProyecto || fechaDesde || fechaHasta) && (
             <button
               onClick={() => {
                 setBusqueda("");
                 setFiltroTipo("");
                 setFiltroOrigen("");
+                setFiltroMotivo("");
+                setFiltroProyecto("");
                 setFechaDesde("");
                 setFechaHasta("");
               }}

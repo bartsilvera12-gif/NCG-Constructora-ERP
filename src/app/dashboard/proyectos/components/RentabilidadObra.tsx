@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
@@ -120,6 +121,14 @@ export default function RentabilidadObra({ projectId }: { projectId: string }) {
               label="Materiales (salidas de inventario)"
               hint={`${data.cantidades.movimientos} salida(s)`}
               value={data.costo_materiales}
+              extra={
+                <Link
+                  href={`/dashboard/proyectos/${projectId}?tab=materiales`}
+                  className="text-[11px] font-medium text-[#4FAEB2] hover:underline"
+                >
+                  Ver detalle de materiales →
+                </Link>
+              }
             />
             <Row
               label="Compras imputadas"
@@ -172,13 +181,14 @@ function KpiCard({ label, value, hint }: { label: string; value: string; hint?: 
   );
 }
 
-function Row({ label, value, hint }: { label: string; value: number; hint?: string }) {
+function Row({ label, value, hint, extra }: { label: string; value: number; hint?: string; extra?: React.ReactNode }) {
   const color = value >= 0 ? "text-slate-700" : "text-red-700";
   return (
     <tr className="border-b border-slate-100 last:border-0">
       <td className="py-2.5">
         <div className="text-sm text-slate-700">{label}</div>
         {hint && <div className="text-xs text-slate-400">{hint}</div>}
+        {extra && <div className="mt-1">{extra}</div>}
       </td>
       <td className={`py-2.5 text-right text-sm font-semibold tabular-nums ${color}`}>
         {fmt(value)}

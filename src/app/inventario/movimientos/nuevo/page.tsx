@@ -1,26 +1,40 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import MontoInput from "@/components/ui/MontoInput";
 import PageHeader from "@/components/ui/PageHeader";
 import { getProductos, saveMovimiento } from "@/lib/inventario/storage";
+import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import type { Producto, TipoMovimiento, OrigenMovimiento } from "@/lib/inventario/types";
 
 type ProyectoLite = { id: string; titulo: string };
 
 export default function NuevoMovimientoPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tipoQuery = (searchParams?.get("tipo") ?? "").toUpperCase();
+  const proyectoIdQuery = searchParams?.get("proyecto_id") ?? "";
+
+  const tipoInicial: TipoMovimiento =
+    tipoQuery === "SALIDA" || tipoQuery === "AJUSTE" ? (tipoQuery as TipoMovimiento) : "ENTRADA";
+  const origenInicial: OrigenMovimiento =
+    tipoInicial === "ENTRADA" ? "compra" : tipoInicial === "SALIDA" ? "venta" : "ajuste_manual";
+
   const [productos, setProductos] = useState<Producto[]>([]);
   const [proyectos, setProyectos] = useState<ProyectoLite[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     producto_id: "",
-    tipo: "ENTRADA" as TipoMovimiento,
+    tipo: tipoInicial,
     cantidad: "",
     costo_unitario: "",
-    origen: "compra" as OrigenMovimiento,
-    proyecto_id: "",
+    origen: origenInicial,
+    proyecto_id: proyectoIdQuery,
+    motivo: tipoInicial === "SALIDA" && proyectoIdQuery ? "uso_obra" : "",
+    observacion: "",
   });
 
   useEffect(() => {
@@ -60,33 +74,88 @@ export default function NuevoMovimientoPage() {
     const tipo = e.target.value as TipoMovimiento;
     const origenSugerido: OrigenMovimiento =
       tipo === "ENTRADA" ? "compra" : tipo === "SALIDA" ? "venta" : "ajuste_manual";
-    setForm((prev) => ({ ...prev, tipo, origen: origenSugerido }));
+    setForm((prev) => ({
+      ...prev,
+      tipo,
+      origen: origenSugerido,
+      // El motivo solo aplica a SALIDA; al cambiar a otro tipo lo limpiamos.
+      motivo: tipo === "SALIDA" ? prev.motivo : "",
+    }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setErrorMsg(null);
 
     const productoSeleccionado = productos.find((p) => p.id === form.producto_id);
-    if (!productoSeleccionado) return;
+    if (!productoSeleccionado) {
+      setErrorMsg("Seleccioná un producto.");
+      return;
+    }
 
     const cantidadNum =
       form.tipo === "AJUSTE"
         ? parseFloat(form.cantidad)
         : Math.abs(parseFloat(form.cantidad));
 
-    const guardado = await saveMovimiento({
-      producto_id: productoSeleccionado.id,
-      producto_nombre: productoSeleccionado.nombre,
-      producto_sku: productoSeleccionado.sku,
-      tipo: form.tipo,
-      cantidad: cantidadNum,
-      costo_unitario: parseFloat(form.costo_unitario) || 0,
-      origen: form.origen,
-      fecha: new Date().toISOString(),
-      proyecto_id: form.proyecto_id || null,
-    });
+    if (!Number.isFinite(cantidadNum) || (form.tipo !== "AJUSTE" && cantidadNum <= 0)) {
+      setErrorMsg("Cantidad inválida.");
+      return;
+    }
 
-    if (guardado) router.push("/inventario/movimientos");
+    // Validación clave: salida con uso_obra requiere obra.
+    if (form.tipo === "SALIDA" && form.motivo === "uso_obra" && !form.proyecto_id) {
+      setErrorMsg("Para salidas con motivo 'Uso en obra' es obligatorio seleccionar la obra.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // SALIDA con motivo va por endpoint dedicado: persiste motivo/observación, valida stock y descuenta.
+      if (form.tipo === "SALIDA" && form.motivo) {
+        const resp = await fetchWithSupabaseSession("/api/inventario/movimientos/salida", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            producto_id: productoSeleccionado.id,
+            cantidad: cantidadNum,
+            motivo: form.motivo,
+            proyecto_id: form.proyecto_id || undefined,
+            observacion: form.observacion || undefined,
+          }),
+        });
+        const j = (await resp.json().catch(() => ({}))) as { success?: boolean; error?: string };
+        if (!resp.ok || !j.success) {
+          setErrorMsg(j.error ?? "No se pudo registrar la salida.");
+          return;
+        }
+      } else {
+        const guardado = await saveMovimiento({
+          producto_id: productoSeleccionado.id,
+          producto_nombre: productoSeleccionado.nombre,
+          producto_sku: productoSeleccionado.sku,
+          tipo: form.tipo,
+          cantidad: cantidadNum,
+          costo_unitario: parseFloat(form.costo_unitario) || 0,
+          origen: form.origen,
+          fecha: new Date().toISOString(),
+          proyecto_id: form.proyecto_id || null,
+        });
+        if (!guardado) {
+          setErrorMsg("No se pudo guardar el movimiento.");
+          return;
+        }
+      }
+
+      // Si vino desde una obra, volver al detalle de la obra (pestaña Materiales).
+      if (proyectoIdQuery) {
+        router.push(`/dashboard/proyectos/${proyectoIdQuery}?tab=materiales`);
+      } else {
+        router.push("/inventario/movimientos");
+      }
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const productoSeleccionado = productos.find((p) => p.id === form.producto_id);
@@ -107,6 +176,16 @@ export default function NuevoMovimientoPage() {
       />
 
       <div className="bg-white rounded-xl shadow-sm ring-1 ring-[#4FAEB2]/10 border border-slate-200 p-6 max-w-2xl">
+        {proyectoIdQuery && (
+          <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Esta salida se imputará a la obra seleccionada.
+          </div>
+        )}
+        {errorMsg && (
+          <div className="mb-5 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+            {errorMsg}
+          </div>
+        )}
         <form className="space-y-6" onSubmit={handleSubmit}>
 
           {/* Producto */}
@@ -159,12 +238,45 @@ export default function NuevoMovimientoPage() {
             </div>
           </div>
 
+          {/* Motivo (solo SALIDA): habilita validaciones y trazabilidad por obra. */}
+          {form.tipo === "SALIDA" && (
+            <div>
+              <label className={labelClass}>
+                Motivo de la salida
+                {form.motivo === "uso_obra" && (
+                  <span className="ml-2 text-xs text-red-600 font-normal">
+                    (requiere obra)
+                  </span>
+                )}
+              </label>
+              <select
+                name="motivo"
+                value={form.motivo}
+                onChange={handleChange}
+                className={inputClass}
+              >
+                <option value="">— Salida genérica —</option>
+                <option value="uso_obra">Uso en obra</option>
+                <option value="consumo_interno">Consumo interno</option>
+                <option value="rotura">Rotura / pérdida</option>
+                <option value="ajuste">Ajuste</option>
+                <option value="entrega_cuadrilla">Entrega a cuadrilla</option>
+                <option value="transferencia_vehiculo">Transferencia a vehículo</option>
+              </select>
+            </div>
+          )}
+
           {/* Obra / Proyecto al que se imputa el movimiento (opcional, recomendado
               en SALIDAS para que el costo y materiales se sumen por obra). */}
           <div>
             <label className={labelClass}>
               Obra / Proyecto
-              {form.tipo === "SALIDA" && (
+              {form.tipo === "SALIDA" && form.motivo === "uso_obra" && (
+                <span className="ml-2 text-xs text-red-600 font-normal">
+                  (obligatorio)
+                </span>
+              )}
+              {form.tipo === "SALIDA" && form.motivo !== "uso_obra" && (
                 <span className="ml-2 text-xs text-amber-600 font-normal">
                   (recomendado para imputar materiales a la obra)
                 </span>
@@ -182,6 +294,21 @@ export default function NuevoMovimientoPage() {
               ))}
             </select>
           </div>
+
+          {/* Observación: visible para SALIDA porque el endpoint /salida la persiste. */}
+          {form.tipo === "SALIDA" && (
+            <div>
+              <label className={labelClass}>Observación (opcional)</label>
+              <input
+                type="text"
+                name="observacion"
+                value={form.observacion}
+                onChange={handleChange}
+                placeholder="Ej: refuerzo zona perimetral"
+                className={inputClass}
+              />
+            </div>
+          )}
 
           {/* Cantidad + Costo unitario */}
           <div className="grid grid-cols-2 gap-6">
@@ -271,9 +398,10 @@ export default function NuevoMovimientoPage() {
           <div className="flex gap-4 pt-2">
             <button
               type="submit"
-              className="bg-gray-900 text-white px-5 py-3 rounded-lg text-sm hover:bg-gray-700 transition-colors"
+              disabled={submitting}
+              className="bg-gray-900 text-white px-5 py-3 rounded-lg text-sm hover:bg-gray-700 transition-colors disabled:opacity-50"
             >
-              Guardar movimiento
+              {submitting ? "Guardando…" : "Guardar movimiento"}
             </button>
             <button
               type="button"
