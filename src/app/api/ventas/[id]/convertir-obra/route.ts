@@ -263,10 +263,31 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const descripcionProy = str(meta.descripcion) ?? str(meta.observaciones_tecnicas);
 
-    // 7. Crear el proyecto.
+    // 7. Resolver cliente y responsable comercial.
+    // cliente_id: prioriza venta.cliente_id; si no, meta.cliente_id (cliente
+    // elegido en el formulario del presupuesto).
+    const metaClienteId = typeof meta.cliente_id === "string" ? meta.cliente_id.trim() : "";
+    const clienteIdFinal = v.cliente_id || (metaClienteId || null);
+
+    // responsable_comercial_id: si el cliente tiene vendedor_usuario_id, lo
+    // tomamos como comercial responsable de la obra. Así la card del kanban
+    // muestra "Com." igual que las obras cargadas a mano.
+    let responsableComercialId: string | null = null;
+    if (clienteIdFinal) {
+      const { data: cli } = await ctx.supabase
+        .from("clientes")
+        .select("vendedor_usuario_id")
+        .eq("empresa_id", empresaId)
+        .eq("id", clienteIdFinal)
+        .maybeSingle();
+      const vu = (cli as { vendedor_usuario_id?: string | null } | null)?.vendedor_usuario_id;
+      if (typeof vu === "string" && vu.trim()) responsableComercialId = vu;
+    }
+
+    // 8. Crear el proyecto.
     const insertProy: Record<string, unknown> = {
       empresa_id: empresaId,
-      cliente_id: v.cliente_id ?? null,
+      cliente_id: clienteIdFinal,
       tipo_id: tipoId,
       estado_id: estadoId,
       titulo,
@@ -275,6 +296,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       monto_vendido: Number(v.total) || 0,
       fecha_ingreso: new Date().toISOString(),
       fecha_prometida: fechaPrometida,
+      responsable_comercial_id: responsableComercialId,
       brief_data,
       presupuesto_origen_id: v.id,
       presupuesto_origen_numero: v.numero_control,
