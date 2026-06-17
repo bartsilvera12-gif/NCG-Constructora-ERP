@@ -328,7 +328,9 @@ export default function NuevaVentaPage() {
           };
         }
       }
-      router.push("/ventas");
+      // Tras guardar volvemos al listado del módulo del que vino el alta:
+      // presupuestos → /presupuestos, venta de obra o venta directa → /ventas.
+      router.push(esPresupuesto ? "/presupuestos" : "/ventas");
     }
     return resultado;
   }

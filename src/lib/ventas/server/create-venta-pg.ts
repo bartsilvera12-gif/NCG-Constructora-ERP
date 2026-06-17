@@ -212,7 +212,10 @@ export async function createVentaTransaccionalPg(
       subtotal: calc.subtotal,
       monto_iva: calc.montoIva,
       total: calc.total,
-      estado: esPresupuesto ? "borrador" : "completada",
+      // ventas.estado CHECK IN ('pendiente','completada','anulada'). Para
+      // presupuestos usamos 'pendiente' (estado_presupuesto lleva el detalle
+      // pendiente/aprobado/rechazado/convertido).
+      estado: esPresupuesto ? "pendiente" : "completada",
       tipo_venta: params.tipoVenta,
       plazo_dias: params.plazoDias,
       metodo_pago: params.metodoPago,
