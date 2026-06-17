@@ -34,6 +34,7 @@ import {
   ChefHat,
   Utensils,
   BarChart3,
+  HardHat,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
@@ -97,6 +98,7 @@ const MENU_STRUCTURE: MenuItem[] = [
 
   { key: "presupuestos",     slug: "ventas",        label: "Presupuestos",     href: "/presupuestos",           icon: FileText },
   { key: "proyectos",        slug: "proyectos",     label: "Proyectos",        href: "/dashboard/proyectos",    icon: FolderKanban },
+  { key: "control_obra",     slug: "proyectos",     label: "Control de obra",  href: "/control-obra",           icon: HardHat },
 
   { key: "compras",          slug: "compras",       label: "Compras",          href: "/compras",                icon: Package },
   { key: "proveedores",      slug: "compras",       label: "Proveedores",      href: "/proveedores",            icon: Building2 },
@@ -120,7 +122,7 @@ const MENU_STRUCTURE: MenuItem[] = [
 const MENU_SECTIONS: { label: string; keys: string[] }[] = [
   { label: "General",    keys: ["dashboard"] },
   { label: "Comercial",  keys: ["clientes", "ventas", "comisiones"] },
-  { label: "Obras",      keys: ["presupuestos", "proyectos"] },
+  { label: "Obras",      keys: ["presupuestos", "proyectos", "control_obra"] },
   { label: "Compras",    keys: ["compras", "proveedores"] },
   { label: "Inventario", keys: ["productos", "movimientos"] },
   { label: "Finanzas",   keys: ["pagos", "gastos", "reportes", "panel_financiero"] },

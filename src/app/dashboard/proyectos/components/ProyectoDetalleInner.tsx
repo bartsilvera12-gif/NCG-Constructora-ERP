@@ -62,6 +62,14 @@ const TAB_LABELS: Record<TabId, string> = {
   historial: "Historial",
 };
 
+/**
+ * Para obras NCG el módulo Proyectos queda liviano (seguimiento general).
+ * Las pestañas pesadas (presupuesto, materiales, personal, rentabilidad y
+ * trazabilidad/historial financiero) viven en /control-obra/[id].
+ * Comentarios se muestra como "Notas".
+ */
+const TAB_IDS_OBRA: readonly TabId[] = ["resumen", "datos", "tareas", "archivos", "comentarios"];
+
 function normalizeTab(raw: string | null | undefined): TabId {
   if (!raw) return "resumen";
   if (raw === "brief") return "datos";
@@ -465,13 +473,14 @@ export default function ProyectoDetalleInner({
 
       {err ? <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">{err}</div> : null}
 
-      <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
-        {TAB_IDS.filter((t) => {
-          // Tabs "Presupuesto" y "Materiales" son específicas de Obras NCG.
-          // No tiene sentido mostrarlas en proyectos web/SaaS/pedidos.
-          if (t === "presupuesto" || t === "materiales") return esObra;
-          return true;
-        }).map((t) => (
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
+        {(esObra
+          ? TAB_IDS_OBRA
+          : TAB_IDS.filter((t) => {
+              if (t === "presupuesto" || t === "materiales") return false;
+              return true;
+            })
+        ).map((t) => (
           <button
             key={t}
             type="button"
@@ -482,11 +491,21 @@ export default function ProyectoDetalleInner({
                 : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
             }`}
           >
-            {esObra && t === "datos" ? "Datos de obra"
-              : esObra && t === "personal" ? "Mano de obra"
+            {esObra && t === "datos"
+              ? "Datos de obra"
+              : esObra && t === "comentarios"
+              ? "Notas"
               : TAB_LABELS[t]}
           </button>
         ))}
+        {esObra ? (
+          <Link
+            href={`/control-obra/${projectId}`}
+            className="ml-auto inline-flex items-center rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#3F8E91]"
+          >
+            Ver control de obra →
+          </Link>
+        ) : null}
       </div>
 
       <div className={variant === "modal" ? "min-h-0 flex-1 overflow-y-auto pr-1" : ""}>

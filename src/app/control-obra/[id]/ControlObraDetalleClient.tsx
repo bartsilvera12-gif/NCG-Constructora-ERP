@@ -1,0 +1,497 @@
+"use client";
+
+/**
+ * Detalle de Control de obra.
+ *
+ * Tabs operativos/financieros separados del módulo Proyectos:
+ * resumen financiero, materiales, compras, gastos, mano de obra, rentabilidad
+ * y trazabilidad. Reutiliza RentabilidadObra, MaterialesObra y PersonalObra.
+ *
+ * Compras/Gastos: GET /api/compras y /api/gastos filtran client-side por
+ * proyecto_id (los endpoints actuales devuelven todo el tenant).
+ */
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft } from "lucide-react";
+import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import RentabilidadObra from "@/app/dashboard/proyectos/components/RentabilidadObra";
+import MaterialesObra from "@/app/dashboard/proyectos/components/MaterialesObra";
+import PersonalObra from "@/app/dashboard/proyectos/components/PersonalObra";
+
+type Proyecto = {
+  id: string;
+  titulo?: string;
+  cliente?: { empresa?: string | null; nombre_contacto?: string | null } | null;
+  estado?: { nombre?: string } | null;
+};
+
+type Compra = {
+  id: string;
+  proyecto_id?: string | null;
+  fecha?: string | null;
+  numero_documento?: string | null;
+  proveedor_nombre?: string | null;
+  proveedor?: { nombre?: string | null } | null;
+  total?: number | null;
+  estado?: string | null;
+  observacion?: string | null;
+};
+
+type Gasto = {
+  id: string;
+  proyecto_id?: string | null;
+  fecha?: string | null;
+  concepto?: string | null;
+  categoria?: string | null;
+  monto?: number | null;
+  responsable?: string | null;
+  observacion?: string | null;
+};
+
+const TABS = [
+  { id: "resumen", label: "Resumen financiero" },
+  { id: "materiales", label: "Materiales" },
+  { id: "compras", label: "Compras" },
+  { id: "gastos", label: "Gastos" },
+  { id: "mano_obra", label: "Mano de obra" },
+  { id: "rentabilidad", label: "Rentabilidad" },
+  { id: "trazabilidad", label: "Trazabilidad" },
+] as const;
+type TabId = (typeof TABS)[number]["id"];
+
+const fmtEur = (n: number | null | undefined) =>
+  n == null
+    ? "—"
+    : `€ ${Number(n).toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+
+function fmtFecha(iso: string | null | undefined) {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleDateString("es-ES");
+  } catch {
+    return iso;
+  }
+}
+
+function clienteNombre(p: Proyecto): string {
+  const c = p.cliente;
+  if (!c) return "—";
+  const a = (c.empresa ?? "").trim();
+  const b = (c.nombre_contacto ?? "").trim();
+  if (a && b) return `${a} · ${b}`;
+  return a || b || "—";
+}
+
+export default function ControlObraDetalleClient({ projectId }: { projectId: string }) {
+  const [tab, setTab] = useState<TabId>("resumen");
+  const [proyecto, setProyecto] = useState<Proyecto | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchWithSupabaseSession(`/api/proyectos/${projectId}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then(
+        (j: { success?: boolean; data?: { proyecto?: Proyecto }; error?: string }) => {
+          if (j?.success && j.data?.proyecto) setProyecto(j.data.proyecto);
+          else setErr(j?.error ?? "No se pudo cargar la obra");
+        }
+      )
+      .catch((e) => setErr(e instanceof Error ? e.message : "Error"));
+  }, [projectId]);
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-5 p-6">
+      <div className="flex flex-wrap items-center gap-3">
+        <Link
+          href="/control-obra"
+          className="text-sm text-[#3F8E91] hover:text-[#4FAEB2] hover:underline"
+        >
+          ← Selector de obras
+        </Link>
+        <Link
+          href={`/dashboard/proyectos/${projectId}`}
+          className="ml-auto inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Volver a obra
+        </Link>
+      </div>
+
+      <div className="border-b border-slate-200 pb-4">
+        <h1 className="truncate text-xl font-semibold text-slate-900">
+          {proyecto?.titulo || "Control de obra"}
+        </h1>
+        <p className="text-sm text-slate-500">
+          {proyecto ? `${clienteNombre(proyecto)} · ${proyecto.estado?.nombre ?? "—"}` : "Cargando…"}
+        </p>
+      </div>
+
+      {err ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          {err}
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+              tab === t.id
+                ? "border border-[#4FAEB2]/40 bg-[#E5F4F4] text-[#3F8E91]"
+                : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "resumen" ? <RentabilidadObra projectId={projectId} /> : null}
+      {tab === "materiales" ? <MaterialesObra projectId={projectId} /> : null}
+      {tab === "compras" ? <ComprasTab projectId={projectId} /> : null}
+      {tab === "gastos" ? <GastosTab projectId={projectId} /> : null}
+      {tab === "mano_obra" ? <PersonalObra projectId={projectId} /> : null}
+      {tab === "rentabilidad" ? <RentabilidadObra projectId={projectId} /> : null}
+      {tab === "trazabilidad" ? <TrazabilidadTab projectId={projectId} /> : null}
+    </div>
+  );
+}
+
+function ComprasTab({ projectId }: { projectId: string }) {
+  const [rows, setRows] = useState<Compra[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchWithSupabaseSession("/api/compras", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j: { success?: boolean; data?: Compra[]; error?: string }) => {
+        if (j?.success && j.data) {
+          setRows(j.data.filter((c) => c.proyecto_id === projectId));
+        } else setErr(j?.error ?? "No se pudo cargar compras");
+      })
+      .catch((e) => setErr(e instanceof Error ? e.message : "Error"))
+      .finally(() => setLoading(false));
+  }, [projectId]);
+
+  const total = useMemo(() => rows.reduce((s, c) => s + Number(c.total ?? 0), 0), [rows]);
+
+  if (loading) return <div className="text-sm text-slate-500">Cargando compras…</div>;
+  if (err)
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        {err}
+      </div>
+    );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <Link
+          href={`/compras/nueva?proyecto_id=${encodeURIComponent(projectId)}`}
+          className="inline-flex items-center rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#3F8E91]"
+        >
+          + Nueva compra para esta obra
+        </Link>
+      </div>
+
+      {rows.length === 0 ? (
+        <VacioControl
+          tipo="compras"
+          accion={`/compras/nueva?proyecto_id=${encodeURIComponent(projectId)}`}
+          accionLabel="+ Nueva compra"
+        />
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3">Fecha</th>
+                <th className="px-4 py-3">Proveedor</th>
+                <th className="px-4 py-3">Documento</th>
+                <th className="px-4 py-3">Estado</th>
+                <th className="px-4 py-3 text-right">Total</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {rows.map((c) => (
+                <tr key={c.id} className="text-slate-700">
+                  <td className="px-4 py-2.5 tabular-nums">{fmtFecha(c.fecha)}</td>
+                  <td className="px-4 py-2.5">
+                    {c.proveedor_nombre ?? c.proveedor?.nombre ?? "—"}
+                  </td>
+                  <td className="px-4 py-2.5">{c.numero_documento ?? "—"}</td>
+                  <td className="px-4 py-2.5">{c.estado ?? "—"}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums">{fmtEur(c.total ?? 0)}</td>
+                  <td className="px-4 py-2.5 text-right">
+                    <Link
+                      href={`/compras/${c.id}`}
+                      className="text-xs font-medium text-[#3F8E91] hover:underline"
+                    >
+                      Ver →
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-slate-50 text-sm">
+              <tr>
+                <td colSpan={4} className="px-4 py-2.5 font-semibold text-slate-700">
+                  Total
+                </td>
+                <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-slate-900">
+                  {fmtEur(total)}
+                </td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GastosTab({ projectId }: { projectId: string }) {
+  const [rows, setRows] = useState<Gasto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchWithSupabaseSession("/api/gastos", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j: { success?: boolean; data?: Gasto[]; error?: string }) => {
+        if (j?.success && j.data) {
+          setRows(j.data.filter((g) => g.proyecto_id === projectId));
+        } else setErr(j?.error ?? "No se pudo cargar gastos");
+      })
+      .catch((e) => setErr(e instanceof Error ? e.message : "Error"))
+      .finally(() => setLoading(false));
+  }, [projectId]);
+
+  const total = useMemo(() => rows.reduce((s, g) => s + Number(g.monto ?? 0), 0), [rows]);
+
+  if (loading) return <div className="text-sm text-slate-500">Cargando gastos…</div>;
+  if (err)
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        {err}
+      </div>
+    );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <Link
+          href={`/gastos/nuevo?proyecto_id=${encodeURIComponent(projectId)}`}
+          className="inline-flex items-center rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#3F8E91]"
+        >
+          + Nuevo gasto para esta obra
+        </Link>
+      </div>
+
+      {rows.length === 0 ? (
+        <VacioControl
+          tipo="gastos"
+          accion={`/gastos/nuevo?proyecto_id=${encodeURIComponent(projectId)}`}
+          accionLabel="+ Nuevo gasto"
+        />
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3">Fecha</th>
+                <th className="px-4 py-3">Concepto</th>
+                <th className="px-4 py-3">Categoría</th>
+                <th className="px-4 py-3">Responsable</th>
+                <th className="px-4 py-3 text-right">Monto</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {rows.map((g) => (
+                <tr key={g.id} className="text-slate-700">
+                  <td className="px-4 py-2.5 tabular-nums">{fmtFecha(g.fecha)}</td>
+                  <td className="px-4 py-2.5">{g.concepto ?? "—"}</td>
+                  <td className="px-4 py-2.5">{g.categoria ?? "—"}</td>
+                  <td className="px-4 py-2.5">{g.responsable ?? "—"}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums">{fmtEur(g.monto ?? 0)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-slate-50 text-sm">
+              <tr>
+                <td colSpan={4} className="px-4 py-2.5 font-semibold text-slate-700">
+                  Total
+                </td>
+                <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-slate-900">
+                  {fmtEur(total)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type EventoTraza = {
+  fecha: string;
+  tipo: "material" | "compra" | "gasto" | "horas";
+  titulo: string;
+  detalle?: string;
+  monto?: number | null;
+};
+
+function TrazabilidadTab({ projectId }: { projectId: string }) {
+  const [eventos, setEventos] = useState<EventoTraza[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [rMat, rCom, rGas, rPer] = await Promise.all([
+          fetchWithSupabaseSession(`/api/proyectos/${projectId}/materiales`, { cache: "no-store" }),
+          fetchWithSupabaseSession("/api/compras", { cache: "no-store" }),
+          fetchWithSupabaseSession("/api/gastos", { cache: "no-store" }),
+          fetchWithSupabaseSession(`/api/proyectos/${projectId}/personal`, { cache: "no-store" }),
+        ]);
+        const jMat = (await rMat.json()) as {
+          success?: boolean;
+          data?: { usados?: Array<{ fecha: string; producto_nombre?: string; cantidad: number; costo_total: number }> };
+        };
+        const jCom = (await rCom.json()) as { success?: boolean; data?: Compra[] };
+        const jGas = (await rGas.json()) as { success?: boolean; data?: Gasto[] };
+        const jPer = (await rPer.json()) as {
+          success?: boolean;
+          data?: { asignaciones?: Array<{ fecha: string; horas: number; costo_total: number; empleado_nombre: string | null }> };
+        };
+
+        const out: EventoTraza[] = [];
+        for (const u of jMat.data?.usados ?? []) {
+          out.push({
+            fecha: u.fecha,
+            tipo: "material",
+            titulo: `Material: ${u.producto_nombre ?? "—"}`,
+            detalle: `${u.cantidad} u.`,
+            monto: u.costo_total,
+          });
+        }
+        for (const c of (jCom.data ?? []).filter((c) => c.proyecto_id === projectId)) {
+          out.push({
+            fecha: c.fecha ?? "",
+            tipo: "compra",
+            titulo: `Compra: ${c.proveedor_nombre ?? c.proveedor?.nombre ?? "—"}`,
+            detalle: c.numero_documento ?? undefined,
+            monto: c.total ?? null,
+          });
+        }
+        for (const g of (jGas.data ?? []).filter((g) => g.proyecto_id === projectId)) {
+          out.push({
+            fecha: g.fecha ?? "",
+            tipo: "gasto",
+            titulo: `Gasto: ${g.concepto ?? "—"}`,
+            detalle: g.categoria ?? undefined,
+            monto: g.monto ?? null,
+          });
+        }
+        for (const a of jPer.data?.asignaciones ?? []) {
+          out.push({
+            fecha: a.fecha,
+            tipo: "horas",
+            titulo: `Horas: ${a.empleado_nombre ?? "—"}`,
+            detalle: `${a.horas} h`,
+            monto: a.costo_total,
+          });
+        }
+        out.sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
+        if (!cancelled) setEventos(out);
+      } catch (e) {
+        if (!cancelled) setErr(e instanceof Error ? e.message : "Error");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  if (loading) return <div className="text-sm text-slate-500">Cargando trazabilidad…</div>;
+  if (err)
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        {err}
+      </div>
+    );
+  if (eventos.length === 0) return <VacioControl tipo="trazabilidad" />;
+
+  const colorTipo: Record<EventoTraza["tipo"], string> = {
+    material: "border-sky-300 bg-sky-50 text-sky-800",
+    compra: "border-violet-300 bg-violet-50 text-violet-800",
+    gasto: "border-amber-300 bg-amber-50 text-amber-800",
+    horas: "border-emerald-300 bg-emerald-50 text-emerald-800",
+  };
+
+  return (
+    <ol className="space-y-2">
+      {eventos.map((e, i) => (
+        <li
+          key={i}
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm"
+        >
+          <div className="flex items-center gap-3">
+            <span
+              className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${colorTipo[e.tipo]}`}
+            >
+              {e.tipo}
+            </span>
+            <div>
+              <div className="font-medium text-slate-900">{e.titulo}</div>
+              <div className="text-xs text-slate-500">
+                {fmtFecha(e.fecha)}
+                {e.detalle ? ` · ${e.detalle}` : ""}
+              </div>
+            </div>
+          </div>
+          {e.monto != null ? (
+            <span className="font-semibold tabular-nums text-slate-800">{fmtEur(e.monto)}</span>
+          ) : null}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function VacioControl({
+  tipo,
+  accion,
+  accionLabel,
+}: {
+  tipo: "compras" | "gastos" | "trazabilidad";
+  accion?: string;
+  accionLabel?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-600">
+      <p className="font-medium text-slate-800">
+        Todavía no hay {tipo === "trazabilidad" ? "eventos registrados" : `${tipo} imputados`} a esta obra.
+      </p>
+      {accion ? (
+        <Link
+          href={accion}
+          className="mt-3 inline-flex items-center rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#3F8E91]"
+        >
+          {accionLabel ?? "Registrar"}
+        </Link>
+      ) : null}
+    </div>
+  );
+}
