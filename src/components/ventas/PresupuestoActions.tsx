@@ -1,11 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
 type Tipo = "venta" | "presupuesto";
 type Estado = "pendiente" | "aprobado" | "rechazado" | "convertido" | null;
+
+type ConfirmTone = "primary" | "teal";
+type ConfirmPrompt = {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  tone: ConfirmTone;
+  onConfirm: () => Promise<void> | void;
+};
 
 /**
  * Render del badge + acciones para tipo_documento / estado_presupuesto de una venta.
@@ -39,6 +48,7 @@ export default function PresupuestoActions({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [confirmPrompt, setConfirmPrompt] = useState<ConfirmPrompt | null>(null);
 
   async function patchWorkflow(body: Record<string, unknown>) {
     setBusy(true);
@@ -60,8 +70,17 @@ export default function PresupuestoActions({
     }
   }
 
-  async function convertir() {
-    if (!confirm("¿Convertir este presupuesto en obra? Se creará una nueva obra y el presupuesto quedará vinculado.")) return;
+  function pedirConfirmConvertir() {
+    setConfirmPrompt({
+      title: "Convertir en obra",
+      message: "Se creará una nueva obra a partir de este presupuesto y quedarán vinculados. Esta acción no se puede deshacer.",
+      confirmLabel: "Crear obra",
+      tone: "teal",
+      onConfirm: ejecutarConvertir,
+    });
+  }
+
+  async function ejecutarConvertir() {
     setBusy(true);
     setErr(null);
     try {
@@ -77,7 +96,6 @@ export default function PresupuestoActions({
       }
       const proy = j.data?.proyecto;
       if (proy?.id) {
-        // Llevar al usuario directo a la obra creada
         window.location.href = `/dashboard/proyectos/${proy.id}`;
         return;
       }
@@ -92,8 +110,17 @@ export default function PresupuestoActions({
    * El usuario nunca ve el estado "aprobado pero sin obra"; al aceptar el
    * presupuesto ya queda como proyecto activo.
    */
-  async function aprobarYCrearObra() {
-    if (!confirm("¿Aprobar este presupuesto? Se creará la obra inmediatamente y el presupuesto quedará vinculado.")) return;
+  function pedirConfirmAprobar() {
+    setConfirmPrompt({
+      title: "Aprobar y crear obra",
+      message: "El presupuesto se aprobará y se creará la obra inmediatamente. Pasarás al detalle del proyecto.",
+      confirmLabel: "Aprobar y crear obra",
+      tone: "primary",
+      onConfirm: ejecutarAprobarYCrearObra,
+    });
+  }
+
+  async function ejecutarAprobarYCrearObra() {
     setBusy(true);
     setErr(null);
     try {
@@ -156,7 +183,7 @@ export default function PresupuestoActions({
             <button
               type="button"
               disabled={busy}
-              onClick={aprobarYCrearObra}
+              onClick={pedirConfirmAprobar}
               title="Aprobar el presupuesto y crear la obra inmediatamente"
               className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 shadow-sm transition-colors hover:bg-emerald-100 hover:border-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -184,7 +211,7 @@ export default function PresupuestoActions({
           <button
             type="button"
             disabled={busy}
-            onClick={convertir}
+            onClick={pedirConfirmConvertir}
             title="Crear una obra a partir de este presupuesto aprobado"
             className="inline-flex items-center gap-1 rounded-md border border-[#4FAEB2]/40 bg-[#E5F4F4] px-2.5 py-1 text-[11px] font-semibold text-[#3F8E91] shadow-sm transition-colors hover:bg-[#D2EBEB] hover:border-[#4FAEB2]/60 disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -211,6 +238,92 @@ export default function PresupuestoActions({
       </div>
 
       {err && <span className="text-[11px] text-red-600">{err}</span>}
+
+      {confirmPrompt && (
+        <ConfirmModal
+          title={confirmPrompt.title}
+          message={confirmPrompt.message}
+          confirmLabel={confirmPrompt.confirmLabel}
+          tone={confirmPrompt.tone}
+          busy={busy}
+          onCancel={() => setConfirmPrompt(null)}
+          onConfirm={async () => {
+            const fn = confirmPrompt.onConfirm;
+            setConfirmPrompt(null);
+            await fn();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Diálogo de confirmación inline (en la página, no es el confirm() nativo).
+ * Cierra con Escape o clic en el backdrop. El botón "Confirmar" se deshabilita
+ * cuando la acción está en curso (`busy=true`).
+ */
+function ConfirmModal({
+  title, message, confirmLabel, tone, busy, onCancel, onConfirm,
+}: {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  tone: ConfirmTone;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !busy) onCancel(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [busy, onCancel]);
+
+  const confirmClasses = tone === "primary"
+    ? "bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500 border-emerald-700"
+    : "bg-[#3F8E91] hover:bg-[#2F6F72] focus:ring-[#4FAEB2] border-[#2F6F72]";
+
+  return (
+    <div
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/55 backdrop-blur-sm p-4"
+      onClick={() => { if (!busy) onCancel(); }}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-5 pt-5 pb-3">
+          <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+          <p className="mt-2 text-sm text-slate-600 leading-relaxed">{message}</p>
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3 rounded-b-2xl">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed ${confirmClasses}`}
+          >
+            {busy && (
+              <svg className="h-4 w-4 animate-spin" viewBox="0 0 20 20" fill="none">
+                <circle cx="10" cy="10" r="7" stroke="currentColor" strokeOpacity="0.3" strokeWidth="2" />
+                <path d="M17 10a7 7 0 0 1-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            )}
+            {busy ? "Procesando…" : confirmLabel}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
