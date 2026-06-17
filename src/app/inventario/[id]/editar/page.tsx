@@ -37,7 +37,7 @@ export default function EditarProductoPage() {
 
   // descripcion live separately because form se inicializa al cargar
   const [descripcion, setDescripcion] = useState("");
-  const [tipoInv, setTipoInv] = useState<"material" | "herramienta" | "consumible">("material");
+  const [tipoInv, setTipoInv] = useState<"material" | "herramienta">("material");
   const [form, setForm] = useState({
     nombre: "",
     sku: "",
@@ -151,7 +151,7 @@ export default function EditarProductoPage() {
       const may = p.precio_mayorista ?? min;
       const markupMin = costo > 0 && min > 0 ? ((min - costo) / costo) * 100 : 0;
       const markupMay = costo > 0 && may > 0 ? ((may - costo) / costo) * 100 : 0;
-      setTipoInv((p.tipo_inventario as "material" | "herramienta" | "consumible" | undefined) ?? "material");
+      setTipoInv((p.tipo_inventario as "material" | "herramienta" | undefined) ?? "material");
       setForm({
         nombre: p.nombre,
         sku: p.sku,
@@ -408,9 +408,7 @@ export default function EditarProductoPage() {
 
   const summary = TIPO_SUMMARY[tipoGastro];
   const showStock = tipoGastro === "reventa";
-  const esConsumible = tipoInv === "consumible";
-  // Consumibles no se venden: ocultar bloques de precios.
-  const showPrecioVenta = tipoGastro !== "materia" && !esConsumible;
+  const showPrecioVenta = tipoGastro !== "materia";
 
   return (
     <div className="space-y-8">
@@ -754,43 +752,17 @@ export default function EditarProductoPage() {
           </div>
 
           <div>
-            <p className="text-xs text-gray-400 mb-3 uppercase tracking-wide font-semibold">
-              {esConsumible ? "Costo y stock" : "Precios"}
-            </p>
+            <p className="text-xs text-gray-400 mb-3 uppercase tracking-wide font-semibold">Precios</p>
 
-            {/* Costo promedio + (consumible) Último costo */}
-            <div className={esConsumible ? "grid grid-cols-1 gap-4 sm:grid-cols-2" : "sm:max-w-xs"}>
-              <div>
-                <label className={labelClass}>
-                  {esConsumible ? "Costo promedio (€)" : "Costo promedio (€)"}
-                </label>
-                <MontoInput
-                  value={form.costo_promedio}
-                  onChange={handleCostoChange}
-                  className={inputClass}
-                  decimals
-                  required
-                />
-                {esConsumible && (
-                  <p className="mt-1 text-xs text-slate-400">
-                    Las compras posteriores recalculan este valor por promedio ponderado.
-                  </p>
-                )}
-              </div>
-              {esConsumible && (
-                <div>
-                  <label className={labelClass}>Último costo (€)</label>
-                  <MontoInput
-                    value={form.ultimo_costo}
-                    onChange={(n) => setForm((p) => ({ ...p, ultimo_costo: String(n) }))}
-                    className={inputClass}
-                    decimals
-                  />
-                  <p className="mt-1 text-xs text-slate-400">
-                    Costo unitario sin IVA de la compra más reciente. Se actualiza al registrar una compra.
-                  </p>
-                </div>
-              )}
+            <div className="sm:max-w-xs">
+              <label className={labelClass}>Costo promedio (€)</label>
+              <MontoInput
+                value={form.costo_promedio}
+                onChange={handleCostoChange}
+                className={inputClass}
+                decimals
+                required
+              />
             </div>
 
             {showPrecioVenta && (

@@ -120,13 +120,9 @@ function rowToProducto(row: ProductoRow): Producto {
     factor_compra_receta: row.factor_compra_receta != null ? Number(row.factor_compra_receta) : 1,
     tiempo_prep_minutos: row.tiempo_prep_minutos != null ? Number(row.tiempo_prep_minutos) : 0,
     descripcion: row.descripcion ?? null,
-    // Fallback: si la DB tiene un tipo legacy ('accesorio' u otro), mapear a 'material'
-    // para que aparezca en la pestaña por defecto.
-    tipo_inventario: (() => {
-      const t = row.tipo_inventario;
-      if (t === "herramienta" || t === "consumible") return t;
-      return "material" as const;
-    })(),
+    // Fallback: cualquier tipo legacy ('consumible', 'accesorio', etc.) cae
+    // como 'material' para que el producto aparezca en la pestaña por defecto.
+    tipo_inventario: row.tipo_inventario === "herramienta" ? "herramienta" : "material",
   };
 }
 

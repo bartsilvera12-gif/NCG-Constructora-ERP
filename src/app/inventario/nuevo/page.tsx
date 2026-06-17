@@ -28,9 +28,8 @@ const UNIDADES_OPCIONES = [
 ] as const;
 
 const TIPO_SUMMARY = {
-  material:    { titulo: "Material",    descripcion: "Materiales que se consumen en cada obra. Controlan stock.",                 icono: "🔩" },
-  herramienta: { titulo: "Herramienta", descripcion: "Activos de la empresa. No descuentan stock ni se facturan al cliente.",     icono: "🛠️" },
-  consumible:  { titulo: "Consumible",  descripcion: "Insumos que se gastan seguido. Controlan stock para alerta de reposición.", icono: "🛢️" },
+  material:    { titulo: "Material",    descripcion: "Materiales que se consumen en cada obra. Controlan stock.",             icono: "🔩" },
+  herramienta: { titulo: "Herramienta", descripcion: "Activos de la empresa. No descuentan stock ni se facturan al cliente.", icono: "🛠️" },
 } as const;
 
 interface CatRow { id: string; nombre: string }
@@ -72,7 +71,7 @@ export default function NuevoProductoPage() {
   const [esInsumo, setEsInsumo] = useState(false);
 
   // Selector inicial de tipo — aplica presets a los flags y persiste tipo_inventario.
-  type TipoInventario = "material" | "herramienta" | "consumible" | null;
+  type TipoInventario = "material" | "herramienta" | null;
   const [tipoInventario, setTipoInventario] = useState<TipoInventario>(null);
   function aplicarTipoInventario(tipo: Exclude<TipoInventario, null>) {
     setTipoInventario(tipo);
@@ -331,7 +330,7 @@ export default function NuevoProductoPage() {
       // Validaciones básicas en JS (HTML5 desactivado con noValidate).
       const nombreT = form.nombre.trim();
       if (!nombreT) { showErr("El nombre es obligatorio."); return; }
-      if ((tipoInventario === "material" || tipoInventario === "consumible") && !form.sku.trim()) { showErr("El código interno / SKU es obligatorio para productos de reventa."); return; }
+      if (tipoInventario === "material" && !form.sku.trim()) { showErr("El código interno / SKU es obligatorio para materiales."); return; }
 
       // Código de barras = NUMÉRICO escaneable (EAN-13). El código interno / SKU
       // va en el campo sku. No se autogenera nada al guardar.
@@ -479,13 +478,6 @@ export default function NuevoProductoPage() {
               descripcion: "Equipos y activos de la empresa. No descuentan stock ni se facturan al cliente.",
               acento: "border-rose-300 bg-rose-50/40 hover:border-rose-500",
             },
-            {
-              tipo: "consumible" as const,
-              titulo: "Consumible",
-              icono: "🛢️",
-              descripcion: "Insumos que se gastan seguido. Controlan stock con alerta de reposición.",
-              acento: "border-emerald-300 bg-emerald-50/40 hover:border-emerald-500",
-            },
           ]).map((opt) => (
             <button
               key={opt.tipo}
@@ -513,10 +505,8 @@ export default function NuevoProductoPage() {
   }
 
   const summary = TIPO_SUMMARY[tipoInventario];
-  const showStock = (tipoInventario === "material" || tipoInventario === "consumible" || tipoInventario === "herramienta");
-  const esConsumible = tipoInventario === "consumible";
-  // Para consumibles no aplica precio de venta (se gastan en obra, no se facturan al cliente).
-  const showPrecioVenta = tipoInventario !== "materia" && !esConsumible;
+  const showStock = (tipoInventario === "material" || tipoInventario === "herramienta");
+  const showPrecioVenta = tipoInventario === "material";
 
   return (
     <div className="space-y-8">
@@ -613,7 +603,7 @@ export default function NuevoProductoPage() {
             <div>
               <label className={labelClass}>
                 Código interno / SKU
-                {(tipoInventario === "material" || tipoInventario === "consumible") ? "" : <span className="text-xs font-normal text-gray-400 ml-1">(opcional)</span>}
+                {tipoInventario === "material" ? "" : <span className="text-xs font-normal text-gray-400 ml-1">(opcional)</span>}
                 {codigoGeneradoInterno && form.sku && (
                   <span className="ml-2 align-middle text-[10px] uppercase tracking-wider bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded">
                     Generado
@@ -627,7 +617,7 @@ export default function NuevoProductoPage() {
                 onChange={handleChange}
                 placeholder="Ej: INT-DIS-202606-000010 o tu propio código"
                 className={`${inputClass} uppercase`}
-                required={(tipoInventario === "material" || tipoInventario === "consumible")}
+                required={tipoInventario === "material"}
                 autoComplete="off"
               />
               <div className="mt-2">
@@ -653,7 +643,7 @@ export default function NuevoProductoPage() {
                 value={form.unidad_medida}
                 onChange={handleChange}
                 className={`${inputClass} uppercase`}
-                required={tipoInventario !== "menu"}
+                required
               >
                 {UNIDADES_OPCIONES.map((u) => (
                   <option key={u} value={u}>{u}</option>
@@ -738,18 +728,11 @@ export default function NuevoProductoPage() {
             </div>
           </div>
 
-          {/* Precios (o "Costo y stock" si es consumible) */}
           <div>
-            <p className="text-xs text-gray-400 mb-3 uppercase tracking-wide font-semibold">
-              {esConsumible ? "Costo y stock" : "Precios"}
-            </p>
-
-            {/* Costo promedio / Costo inicial sin IVA */}
-            <div className={esConsumible ? "grid grid-cols-1 gap-4 sm:grid-cols-2" : "sm:max-w-xs"}>
+            <p className="text-xs text-gray-400 mb-3 uppercase tracking-wide font-semibold">Precios</p>
+            <div className="sm:max-w-xs">
               <div>
-                <label className={labelClass}>
-                  {esConsumible ? "Costo inicial sin IVA (€)" : "Costo promedio (€)"}
-                </label>
+                <label className={labelClass}>Costo promedio (€)</label>
                 <MontoInput
                   value={form.costo_promedio}
                   onChange={handleCostoChange}
@@ -758,27 +741,7 @@ export default function NuevoProductoPage() {
                   decimals
                   required
                 />
-                {esConsumible && (
-                  <p className="mt-1 text-xs text-slate-400">
-                    Si no cargás último costo, se usa este valor también como base. Las compras posteriores recalculan el costo promedio ponderado.
-                  </p>
-                )}
               </div>
-              {esConsumible && (
-                <div>
-                  <label className={labelClass}>Último costo (€) <span className="text-xs font-normal text-gray-400">(opcional)</span></label>
-                  <MontoInput
-                    value={form.ultimo_costo}
-                    onChange={(n) => setForm((p) => ({ ...p, ultimo_costo: String(n) }))}
-                    placeholder="Si lo dejás vacío, = costo inicial"
-                    className={inputClass}
-                    decimals
-                  />
-                  <p className="mt-1 text-xs text-slate-400">
-                    Costo unitario sin IVA de la compra más reciente. Se actualiza solo cuando registrás una compra.
-                  </p>
-                </div>
-              )}
             </div>
 
             {showPrecioVenta && (

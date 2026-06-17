@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
       : costoPromedio;
     const stockMinimo = Number(body.stock_minimo ?? 0) || 0;
     const tipoInventario =
-      body.tipo_inventario === "consumible" || body.tipo_inventario === "herramienta"
+      body.tipo_inventario === "herramienta"
         ? (body.tipo_inventario as string)
         : "material";
     // Precios: minorista es el precio principal. Fallback a precio_venta para

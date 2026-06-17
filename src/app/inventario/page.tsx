@@ -10,7 +10,6 @@ import EdgeScrollArea from "@/components/ui/EdgeScrollArea";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge, { type BadgeTone } from "@/components/ui/Badge";
 import { useIsAdmin } from "@/lib/auth/use-is-admin";
-import SalidaConsumibleModal, { type SalidaConsumibleProducto } from "@/components/inventario/SalidaConsumibleModal";
 import AsignarHerramientaModal, { type HerramientaResumen } from "@/components/inventario/AsignarHerramientaModal";
 import DevolverHerramientaModal from "@/components/inventario/DevolverHerramientaModal";
 import FinalizarMantenimientoModal from "@/components/inventario/FinalizarMantenimientoModal";
@@ -61,11 +60,10 @@ export default function InventarioPage() {
   const [filtroValuacion,  setFiltroValuacion]  = useState<MetodoValuacion | "">("");
   const [filtroUbicacion,  setFiltroUbicacion]  = useState<string>(""); // "", "__sin__" o id
   const [filtroTipo,       setFiltroTipo]       = useState<"todos" | "vendibles" | "insumos" | "mixtos">("todos");
-  const [tab,              setTab]               = useState<"material" | "herramienta" | "consumible">("material");
+  const [tab,              setTab]               = useState<"material" | "herramienta">("material");
   const [cargandoLista,    setCargandoLista]     = useState(true);
   const [soloStockBajo,    setSoloStockBajo]    = useState(false);
   const [eliminandoId,     setEliminandoId]     = useState<string | null>(null);
-  const [salidaProducto,   setSalidaProducto]   = useState<SalidaConsumibleProducto | null>(null);
   const [toast,            setToast]            = useState<string | null>(null);
   // Herramientas: estado de modales y resumen de "última asignación" por producto.
   const [herrModal, setHerrModal] = useState<{ tipo: "asignar" | "devolver" | "finmant" | "baja"; herr: HerramientaResumen } | null>(null);
@@ -297,7 +295,7 @@ export default function InventarioPage() {
     // Usa tipo_inventario (nueva columna). Si está vacío o tiene un valor legacy
     // (ej. 'accesorio'), se trata como 'material' para que no quede oculto.
     const rawTipo = (p as { tipo_inventario?: string }).tipo_inventario;
-    const tipoInv = rawTipo === "herramienta" || rawTipo === "consumible" ? rawTipo : "material";
+    const tipoInv = rawTipo === "herramienta" ? rawTipo : "material";
     if (tipoInv !== tab) return false;
 
     return true;
@@ -359,7 +357,6 @@ export default function InventarioPage() {
           {([
             { id: "material",    label: "Materiales",  subtitle: "Materiales principales que se consumen en cada obra" },
             { id: "herramienta", label: "Herramientas", subtitle: "Activos de la empresa: equipos y herramientas" },
-            { id: "consumible",  label: "Consumibles",  subtitle: "Insumos que se gastan seguido" },
           ] as const).map((t) => (
             <button
               key={t.id}
@@ -394,9 +391,7 @@ export default function InventarioPage() {
               href="/inventario/nuevo"
               className="rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-[#4FAEB2]/25 transition-colors hover:bg-[#3F8E91] active:scale-95"
             >
-              {tab === "consumible" ? "Nuevo consumible"
-                : tab === "herramienta" ? "Nueva herramienta"
-                : "Nuevo material"}
+              {tab === "herramienta" ? "Nueva herramienta" : "Nuevo material"}
             </Link>
             <input
               type="text"
@@ -524,19 +519,18 @@ export default function InventarioPage() {
                 <th className={`py-3 pr-4 font-medium ${tab === "herramienta" ? "hidden lg:table-cell" : ""}`}>
                   {tab === "herramienta" ? "Costo adquisición" : "Costo Prom."}
                 </th>
-                <th className={`py-3 pr-4 font-medium ${tab === "consumible" ? "" : "hidden"}`}>Último costo</th>
-                <th className={`py-3 pr-4 font-medium ${tab === "consumible" || tab === "herramienta" ? "hidden" : ""}`}>Precio Venta</th>
+                <th className={`py-3 pr-4 font-medium ${tab === "herramienta" ? "hidden" : ""}`}>Precio Venta</th>
                 <th className={`py-3 pr-4 font-medium text-center ${tab !== "herramienta" ? "" : "hidden"}`}>Stock</th>
                 <th className={`py-3 pr-4 font-medium text-center ${tab !== "herramienta" ? "hidden md:table-cell" : "hidden"}`}>Stock Mín.</th>
                 <th className={`py-3 pr-4 font-medium ${tab === "herramienta" ? "" : "hidden"}`}>Estado</th>
-                <th className={`py-3 pr-4 font-medium hidden md:table-cell ${tab === "herramienta" ? "" : ""}`}>{tab === "herramienta" ? "Responsable" : "Unidad"}</th>
+                <th className={`py-3 pr-4 font-medium hidden md:table-cell`}>{tab === "herramienta" ? "Responsable" : "Unidad"}</th>
                 <th className={`py-3 pr-4 font-medium hidden lg:table-cell`}>
-                  {tab === "herramienta" ? "Obra asignada" : tab === "consumible" ? "Valor (€)" : "Valuación"}
+                  {tab === "herramienta" ? "Obra asignada" : "Valuación"}
                 </th>
-                <th className={`py-3 pr-6 font-medium text-right hidden md:table-cell ${tab === "consumible" || tab === "herramienta" ? "md:hidden" : ""}`}>
+                <th className={`py-3 pr-6 font-medium text-right hidden md:table-cell ${tab === "herramienta" ? "md:hidden" : ""}`}>
                   <span title="(precio - costo) / precio × 100">Margen s/venta</span>
                 </th>
-                <th className={`py-3 pl-4 font-medium text-center ${tab === "consumible" || tab === "herramienta" ? "w-72" : "w-44"}`}>Acción</th>
+                <th className={`py-3 pl-4 font-medium text-center ${tab === "herramienta" ? "w-72" : "w-44"}`}>Acción</th>
               </tr>
             </thead>
 
@@ -596,8 +590,7 @@ export default function InventarioPage() {
                     </td>
                     <td className="py-4 pr-4 text-gray-500 font-mono hidden md:table-cell">{p.sku}</td>
                     <td className={`py-4 pr-4 text-gray-700 ${tab === "herramienta" ? "hidden lg:table-cell" : ""}`}>{formatGs(p.costo_promedio)}</td>
-                    <td className={`py-4 pr-4 text-gray-700 ${tab === "consumible" ? "" : "hidden"}`}>{formatGs(p.ultimo_costo ?? p.costo_promedio)}</td>
-                    <td className={`py-4 pr-4 text-gray-700 ${tab === "consumible" || tab === "herramienta" ? "hidden" : ""}`}>{formatGs(p.precio_venta)}</td>
+                    <td className={`py-4 pr-4 text-gray-700 ${tab === "herramienta" ? "hidden" : ""}`}>{formatGs(p.precio_venta)}</td>
                     <td className={`py-4 pr-4 text-center ${tab !== "herramienta" ? "" : "hidden"}`}>
                       <span className={`font-semibold ${stockBajo ? "text-red-600" : "text-gray-800"}`}>
                         {p.stock_actual}
@@ -630,15 +623,11 @@ export default function InventarioPage() {
                     <td className="py-4 pr-4 hidden lg:table-cell">
                       {tab === "herramienta" ? (
                         <span className="text-xs text-gray-700">{ultAsign.get(p.id)?.obra ?? <span className="text-gray-300">—</span>}</span>
-                      ) : tab === "consumible" ? (
-                        <span className="tabular-nums font-semibold text-gray-800">
-                          {formatGs(p.stock_actual * p.costo_promedio)}
-                        </span>
                       ) : (
                         <Badge tone={metodoTone[p.metodo_valuacion]}>{p.metodo_valuacion}</Badge>
                       )}
                     </td>
-                    <td className={`py-4 pr-6 text-right tabular-nums font-semibold hidden md:table-cell ${tab === "consumible" || tab === "herramienta" ? "md:hidden" : ""} ${margenColor(margen)}`}>
+                    <td className={`py-4 pr-6 text-right tabular-nums font-semibold hidden md:table-cell ${tab === "herramienta" ? "md:hidden" : ""} ${margenColor(margen)}`}>
                       {margen.toFixed(2)}%
                     </td>
                     <td className="py-4 pl-4 text-center">
@@ -687,30 +676,6 @@ export default function InventarioPage() {
                             </>
                           );
                         })()}
-                        {tab === "consumible" && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => setSalidaProducto({
-                                id: p.id,
-                                nombre: p.nombre,
-                                sku: p.sku,
-                                stock_actual: p.stock_actual,
-                                costo_promedio: p.costo_promedio,
-                                unidad_medida: p.unidad_medida,
-                              })}
-                              className="inline-flex items-center justify-center min-h-[40px] rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100 transition-colors"
-                            >
-                              Dar salida
-                            </button>
-                            <Link
-                              href={`/inventario/movimientos?producto=${p.id}`}
-                              className="inline-flex items-center justify-center min-h-[40px] rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors"
-                            >
-                              Movimientos
-                            </Link>
-                          </>
-                        )}
                         <Link
                           href={`/inventario/${p.id}/editar`}
                           className="inline-flex items-center justify-center min-h-[40px] rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors"
@@ -739,9 +704,7 @@ export default function InventarioPage() {
                         ? "Ningún ítem coincide con los filtros."
                         : tab === "herramienta"
                           ? "No hay herramientas registradas. Creá una con “Nueva herramienta”."
-                          : tab === "consumible"
-                            ? "No hay consumibles registrados. Creá uno con “Nuevo consumible”."
-                            : "No hay materiales registrados. Creá uno con “Nuevo material”."}
+                          : "No hay materiales registrados. Creá uno con “Nuevo material”."}
                   </td>
                 </tr>
               )}
@@ -751,18 +714,6 @@ export default function InventarioPage() {
         </EdgeScrollArea>
 
       </div>
-
-      {salidaProducto && (
-        <SalidaConsumibleModal
-          producto={salidaProducto}
-          onClose={() => setSalidaProducto(null)}
-          onSaved={async () => {
-            setRefreshKey((k) => k + 1);
-            setToast("Salida registrada correctamente.");
-            setTimeout(() => setToast(null), 3000);
-          }}
-        />
-      )}
 
       {herrModal?.tipo === "asignar" && (
         <AsignarHerramientaModal
