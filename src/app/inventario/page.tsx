@@ -585,20 +585,59 @@ export default function InventarioPage() {
                             if (i) return <Badge tone="success">Insumo</Badge>;
                             return null;
                           })()}
-                          {tab === "herramienta" && p.estado_herramienta && (
-                            <span
-                              title={p.estado_herramienta === "nueva"
-                                ? "Herramienta nueva (sin uso previo)"
-                                : "Herramienta usada"}
-                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                                p.estado_herramienta === "nueva"
-                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                  : "bg-amber-50 text-amber-700 border border-amber-200"
-                              }`}
-                            >
-                              {p.estado_herramienta === "nueva" ? "Nueva" : "Usada"}
-                            </span>
-                          )}
+                          {tab === "herramienta" && (() => {
+                            // Condición al alta: badge nuevo (verde/ámbar/sky).
+                            // Fallback al legacy estado_herramienta si la fila aún no migró.
+                            const cond = (p.condicion_alta ??
+                              (p.estado_herramienta === "usada" ? "usada" : p.estado_herramienta === "nueva" ? "nueva" : null)) as
+                              | "nueva"
+                              | "usada"
+                              | "reacondicionada"
+                              | null;
+                            const cls: Record<NonNullable<typeof cond>, string> = {
+                              nueva: "bg-emerald-50 text-emerald-700 border-emerald-200",
+                              usada: "bg-amber-50 text-amber-700 border-amber-200",
+                              reacondicionada: "bg-sky-50 text-sky-700 border-sky-200",
+                            };
+                            const label: Record<NonNullable<typeof cond>, string> = {
+                              nueva: "Nueva",
+                              usada: "Usada",
+                              reacondicionada: "Reacond.",
+                            };
+                            const op = p.estado_operativo;
+                            const opCls: Record<NonNullable<typeof op>, string> = {
+                              disponible: "bg-slate-50 text-slate-600 border-slate-200",
+                              asignada: "bg-violet-50 text-violet-700 border-violet-200",
+                              en_mantenimiento: "bg-orange-50 text-orange-700 border-orange-200",
+                              baja: "bg-rose-50 text-rose-700 border-rose-200",
+                            };
+                            const opLabel: Record<NonNullable<typeof op>, string> = {
+                              disponible: "Disponible",
+                              asignada: "Asignada",
+                              en_mantenimiento: "En mantenimiento",
+                              baja: "Baja",
+                            };
+                            return (
+                              <>
+                                {cond ? (
+                                  <span
+                                    title={`Condición al alta: ${label[cond]}`}
+                                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${cls[cond]}`}
+                                  >
+                                    {label[cond]}
+                                  </span>
+                                ) : null}
+                                {op ? (
+                                  <span
+                                    title={`Estado operativo: ${opLabel[op]}`}
+                                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${opCls[op]}`}
+                                  >
+                                    {opLabel[op]}
+                                  </span>
+                                ) : null}
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                     </td>

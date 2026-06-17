@@ -54,9 +54,40 @@ export interface Producto {
   descripcion?: string | null;
   /** Clasificación NCG (constructora): material / herramienta. */
   tipo_inventario?: "material" | "herramienta";
-  /** Solo aplica si tipo_inventario='herramienta'. Distingue herramienta nueva
-   *  de usada (puede afectar costo de reposición y reportes). NULL en el resto. */
+  /** @deprecated Reemplazado por `condicion_alta`. Se mantiene leído por
+   *  compatibilidad con filas legacy; las nuevas filas no lo escriben. */
   estado_herramienta?: "nueva" | "usada" | null;
+
+  // ─── Herramientas: condición al alta + estado operativo ───────────────────
+  /** Cómo entró al inventario. Inmutable post-alta. */
+  condicion_alta?: "nueva" | "usada" | "reacondicionada" | null;
+  /** Estado operativo actual. Cambia durante el uso. */
+  estado_operativo?: "disponible" | "asignada" | "en_mantenimiento" | "baja" | null;
+
+  // Datos de adquisición (cargados según condición)
+  fecha_compra?: string | null;
+  proveedor_id?: string | null;
+  proveedor_nombre?: string | null;
+  costo_adquisicion?: number | null;
+  numero_comprobante?: string | null;
+  garantia?: boolean | null;
+  garantia_fin?: string | null;
+  vida_util_estimada_meses?: number | null;
+  vida_util_restante_meses?: number | null;
+
+  // Usada / Reacondicionada
+  /** compra_usada | ya_existia | otra */
+  procedencia?: "compra_usada" | "ya_existia" | "otra" | null;
+  /** buena | regular | requiere_revision */
+  condicion_actual?: "buena" | "regular" | "requiere_revision" | null;
+  requiere_mantenimiento_inicial?: boolean | null;
+
+  // Reacondicionada
+  fecha_reacondicionamiento?: string | null;
+  costo_reacondicionamiento?: number | null;
+
+  /** Observación libre del alta de herramienta. */
+  herramienta_observacion?: string | null;
 }
 
 export interface MovimientoInventario {

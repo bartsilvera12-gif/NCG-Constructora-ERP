@@ -11,6 +11,12 @@ import CrearProveedorModal, { type ProveedorCreado } from "@/components/inventar
 import { productoExiste, saveProducto } from "@/lib/inventario/storage";
 import { generarEan13 } from "@/lib/inventario/ean13";
 import type { MetodoValuacion } from "@/lib/inventario/types";
+import HerramientaCondicionForm, {
+  EMPTY_HERRAMIENTA,
+  buildHerramientaPayload,
+  validateHerramientaForm,
+  type HerramientaCondicionData,
+} from "@/components/inventario/HerramientaCondicionForm";
 
 // Opciones de unidad de medida para construcción NCG.
 // Orden por frecuencia de uso: lo más utilizado al principio.
@@ -73,9 +79,9 @@ export default function NuevoProductoPage() {
   // Selector inicial de tipo — aplica presets a los flags y persiste tipo_inventario.
   type TipoInventario = "material" | "herramienta" | null;
   const [tipoInventario, setTipoInventario] = useState<TipoInventario>(null);
-  // Solo aplica a herramientas. 'nueva' por defecto: la mayoría de las altas
-  // son adquisiciones nuevas; 'usada' se elige explícitamente.
-  const [estadoHerramienta, setEstadoHerramienta] = useState<"nueva" | "usada">("nueva");
+  // Solo aplica a herramientas. Estado del nuevo form de condición al alta
+  // (Nueva / Usada / Reacondicionada) + campos condicionales.
+  const [herramientaData, setHerramientaData] = useState<HerramientaCondicionData>(EMPTY_HERRAMIENTA);
   function aplicarTipoInventario(tipo: Exclude<TipoInventario, null>) {
     setTipoInventario(tipo);
     if (tipo === "material") {
@@ -335,6 +341,12 @@ export default function NuevoProductoPage() {
       if (!nombreT) { showErr("El nombre es obligatorio."); return; }
       if (tipoInventario === "material" && !form.sku.trim()) { showErr("El código interno / SKU es obligatorio para materiales."); return; }
 
+      // Validaciones específicas de herramienta según condición al alta.
+      if (tipoInventario === "herramienta") {
+        const errH = validateHerramientaForm(herramientaData);
+        if (errH) { showErr(errH); return; }
+      }
+
       // Código de barras = NUMÉRICO escaneable (EAN-13). El código interno / SKU
       // va en el campo sku. No se autogenera nada al guardar.
       const codigoBarras = form.codigo_barras.trim();
@@ -391,7 +403,9 @@ export default function NuevoProductoPage() {
           controla_stock: controlaStock,
           valorizado: valorizado,
           tipo_inventario: tipoInventario ?? "material",
-          estado_herramienta: tipoInventario === "herramienta" ? estadoHerramienta : null,
+          ...(tipoInventario === "herramienta"
+            ? (buildHerramientaPayload(herramientaData) as Record<string, unknown>)
+            : {}),
           unidad_compra: unidadCompra.trim() || null,
           unidad_receta: unidadReceta.trim() || null,
           factor_compra_receta: Math.max(parseFloat(factorCompraReceta) || 1, 0.0001),
@@ -576,7 +590,11 @@ export default function NuevoProductoPage() {
               name="nombre"
               value={form.nombre}
               onChange={handleChange}
-              placeholder="Ej: HAMBURGUESA CASERA"
+              placeholder={
+                tipoInventario === "herramienta"
+                  ? "Ej: Taladro Bosch GSB 13"
+                  : "Ej: Lámina impermeabilizante 4mm"
+              }
               className={`${inputClass} uppercase`}
               required
             />
@@ -594,7 +612,7 @@ export default function NuevoProductoPage() {
               onChange={handleChange}
               placeholder={
                 tipoInventario === "herramienta"
-                  ? "Ej: Pan, carne, huevo, doble queso, lechuga, tomate, mayonesa."
+                  ? "Ej: Taladro percutor para trabajos de cubierta"
                   : "Descripción opcional del producto"
               }
               rows={tipoInventario === "herramienta" ? 3 : 2}
@@ -619,7 +637,11 @@ export default function NuevoProductoPage() {
                 name="sku"
                 value={form.sku}
                 onChange={handleChange}
-                placeholder="Ej: INT-DIS-202606-000010 o tu propio código"
+                placeholder={
+                  tipoInventario === "herramienta"
+                    ? "Ej: HER-TAL-0001"
+                    : "Ej: INT-DIS-202606-000010 o tu propio código"
+                }
                 className={`${inputClass} uppercase`}
                 required={tipoInventario === "material"}
                 autoComplete="off"
@@ -657,36 +679,36 @@ export default function NuevoProductoPage() {
 
             {tipoInventario === "herramienta" && (
               <div>
-                <label className={labelClass}>Estado de la herramienta</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(["nueva", "usada"] as const).map((opt) => {
-                    const activo = estadoHerramienta === opt;
-                    const labelOpt = opt === "nueva" ? "Nueva" : "Usada";
-                    const descOpt = opt === "nueva"
-                      ? "Adquisición reciente, sin uso previo."
-                      : "Ya tiene uso o vino de otra obra.";
-                    return (
-                      <button
-                        key={opt}
-                        type="button"
-                        onClick={() => setEstadoHerramienta(opt)}
-                        className={`text-left rounded-lg border px-3 py-2 transition-colors ${
-                          activo
-                            ? "border-amber-400 bg-amber-50 ring-1 ring-amber-300"
-                            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                        }`}
-                      >
-                        <div className={`text-sm font-semibold ${activo ? "text-amber-800" : "text-slate-700"}`}>
-                          {labelOpt}
-                        </div>
-                        <div className="text-[11px] text-slate-500 mt-0.5 leading-snug">{descOpt}</div>
-                      </button>
-                    );
-                  })}
-                </div>
+                <label className={labelClass}>Unidad de medida</label>
+                <select
+                  name="unidad_medida"
+                  value={form.unidad_medida || "UNIDAD"}
+                  onChange={handleChange}
+                  className={`${inputClass} uppercase`}
+                >
+                  {UNIDADES_OPCIONES.map((u) => (
+                    <option key={u} value={u}>
+                      {u}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
           </div>
+
+          {/* Condición de alta + datos según condición (solo herramienta). */}
+          {tipoInventario === "herramienta" && (
+            <div className="border-t border-slate-100 pt-6">
+              <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold mb-3">
+                Condición al alta
+              </p>
+              <HerramientaCondicionForm
+                value={herramientaData}
+                onChange={setHerramientaData}
+                proveedores={proveedores}
+              />
+            </div>
+          )}
 
           {/* Código de barras (EAN-13 numérico, escaneable con lector) */}
           <div>

@@ -4,6 +4,10 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { normalizeUpperText } from "@/lib/text/normalize";
 import { signProductoImagen } from "@/lib/inventario/imagen-storage";
+import {
+  HERRAMIENTA_COLS,
+  parseHerramientaPayload,
+} from "@/lib/inventario/herramienta-payload";
 import type { AppSupabaseClient } from "@/lib/supabase/schema";
 
 /**
@@ -16,7 +20,8 @@ const PRODUCTO_COLS =
   "codigo_barras, codigo_interno, codigo_barras_interno, imagen_path, imagen_url, " +
   "categoria_principal_id, ubicacion_principal_id, proveedor_principal_id, " +
   "es_vendible, es_insumo, controla_stock, valorizado, unidad_compra, unidad_receta, " +
-  "factor_compra_receta, tiempo_prep_minutos, descripcion, tipo_inventario, estado_herramienta";
+  "factor_compra_receta, tiempo_prep_minutos, descripcion, tipo_inventario, estado_herramienta, " +
+  HERRAMIENTA_COLS;
 
 function toNumber(v: unknown): unknown {
   return typeof v === "string" ? Number(v) : v;
@@ -139,12 +144,22 @@ export async function POST(request: NextRequest) {
       body.tipo_inventario === "herramienta"
         ? (body.tipo_inventario as string)
         : "material";
-    // Solo persistimos estado_herramienta para herramientas. En materiales queda
-    // NULL aunque el cliente lo envíe (defensa contra valores espurios).
-    const estadoHerramienta =
-      tipoInventario === "herramienta"
-        ? (body.estado_herramienta === "usada" ? "usada" : "nueva")
-        : null;
+    // estado_herramienta legacy: queda como espejo de la nueva condicion_alta
+    // (ver más abajo). Para materiales SIEMPRE NULL.
+    let estadoHerramienta: "nueva" | "usada" | null = null;
+
+    // Parsear todos los campos nuevos de herramienta. Solo se persisten cuando
+    // el producto es 'herramienta'; para materiales se ignoran.
+    let herramientaFields: ReturnType<typeof parseHerramientaPayload> | null = null;
+    if (tipoInventario === "herramienta") {
+      herramientaFields = parseHerramientaPayload(body);
+      if (!herramientaFields.ok) {
+        return NextResponse.json(errorResponse(herramientaFields.error), { status: 400 });
+      }
+      const c = herramientaFields.fields.condicion_alta ?? "nueva";
+      // Espejo legacy: nueva → 'nueva'; usada/reacond. → 'usada'.
+      estadoHerramienta = c === "nueva" ? "nueva" : "usada";
+    }
     // Precios: minorista es el precio principal. Fallback a precio_venta para
     // compatibilidad si el cliente no envía minorista. Mayorista cae a minorista.
     const precioVentaBody = Number(body.precio_venta ?? 0) || 0;
@@ -227,6 +242,27 @@ export async function POST(request: NextRequest) {
       tipo_inventario: tipoInventario,
       estado_herramienta: estadoHerramienta,
     };
+    if (tipoInventario === "herramienta" && herramientaFields && herramientaFields.ok) {
+      const f = herramientaFields.fields;
+      // Default condicion_alta='nueva' si el cliente no la mandó.
+      insertPayload.condicion_alta = f.condicion_alta ?? "nueva";
+      insertPayload.estado_operativo = f.estado_operativo ?? "disponible";
+      insertPayload.fecha_compra = f.fecha_compra;
+      insertPayload.proveedor_id = f.proveedor_id;
+      insertPayload.proveedor_nombre = f.proveedor_nombre;
+      insertPayload.costo_adquisicion = f.costo_adquisicion;
+      insertPayload.numero_comprobante = f.numero_comprobante;
+      insertPayload.garantia = f.garantia;
+      insertPayload.garantia_fin = f.garantia_fin;
+      insertPayload.vida_util_estimada_meses = f.vida_util_estimada_meses;
+      insertPayload.vida_util_restante_meses = f.vida_util_restante_meses;
+      insertPayload.procedencia = f.procedencia;
+      insertPayload.condicion_actual = f.condicion_actual;
+      insertPayload.requiere_mantenimiento_inicial = f.requiere_mantenimiento_inicial;
+      insertPayload.fecha_reacondicionamiento = f.fecha_reacondicionamiento;
+      insertPayload.costo_reacondicionamiento = f.costo_reacondicionamiento;
+      insertPayload.herramienta_observacion = f.herramienta_observacion;
+    }
     if (esVendible !== undefined) insertPayload.es_vendible = esVendible;
     if (esInsumo !== undefined) insertPayload.es_insumo = esInsumo;
     if (controlaStock !== undefined) insertPayload.controla_stock = controlaStock;

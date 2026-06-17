@@ -3,6 +3,10 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { normalizeUpperText } from "@/lib/text/normalize";
+import {
+  HERRAMIENTA_COLS,
+  parseHerramientaPayload,
+} from "@/lib/inventario/herramienta-payload";
 import type { AppSupabaseClient } from "@/lib/supabase/schema";
 
 const PRODUCTO_COLS =
@@ -11,7 +15,8 @@ const PRODUCTO_COLS =
   "codigo_barras, codigo_interno, codigo_barras_interno, imagen_path, imagen_url, " +
   "categoria_principal_id, ubicacion_principal_id, proveedor_principal_id, " +
   "es_vendible, es_insumo, controla_stock, valorizado, unidad_compra, unidad_receta, " +
-  "factor_compra_receta, tiempo_prep_minutos, descripcion, tipo_inventario, estado_herramienta";
+  "factor_compra_receta, tiempo_prep_minutos, descripcion, tipo_inventario, estado_herramienta, " +
+  HERRAMIENTA_COLS;
 
 function toNumber(v: unknown): unknown {
   return typeof v === "string" ? Number(v) : v;
@@ -175,14 +180,70 @@ export async function PATCH(
     if (body.tipo_inventario === "herramienta" || body.tipo_inventario === "material") {
       patch.tipo_inventario = body.tipo_inventario;
     }
-    // Solo persistimos estado_herramienta cuando el producto es (o pasa a ser)
-    // herramienta. Si en este PATCH el tipo cae a 'material', lo limpiamos a
-    // null para no dejar el campo huérfano. Si el tipo no se está tocando y el
-    // cliente envía un estado, asumimos que el producto ya es herramienta.
+    // Si pasa a 'material', limpiar TODOS los campos específicos de herramienta
+    // (incluyendo legacy estado_herramienta) para no dejar huérfanos.
     if (patch.tipo_inventario === "material") {
       patch.estado_herramienta = null;
-    } else if (body.estado_herramienta === "usada" || body.estado_herramienta === "nueva") {
-      patch.estado_herramienta = body.estado_herramienta;
+      patch.condicion_alta = null;
+      patch.estado_operativo = null;
+      patch.fecha_compra = null;
+      patch.proveedor_id = null;
+      patch.proveedor_nombre = null;
+      patch.costo_adquisicion = null;
+      patch.numero_comprobante = null;
+      patch.garantia = null;
+      patch.garantia_fin = null;
+      patch.vida_util_estimada_meses = null;
+      patch.vida_util_restante_meses = null;
+      patch.procedencia = null;
+      patch.condicion_actual = null;
+      patch.requiere_mantenimiento_inicial = null;
+      patch.fecha_reacondicionamiento = null;
+      patch.costo_reacondicionamiento = null;
+      patch.herramienta_observacion = null;
+    } else {
+      // legacy estado_herramienta: solo se acepta si el cliente lo envía
+      // explícitamente. Las UIs nuevas no lo mandan; el espejo lo recalcula
+      // el helper a partir de condicion_alta.
+      if (body.estado_herramienta === "usada" || body.estado_herramienta === "nueva") {
+        patch.estado_herramienta = body.estado_herramienta;
+      }
+      // Cualquier campo de herramienta que venga, pasarlo por el parser.
+      const HER_KEYS = [
+        "condicion_alta",
+        "estado_operativo",
+        "fecha_compra",
+        "proveedor_id",
+        "proveedor_nombre",
+        "costo_adquisicion",
+        "numero_comprobante",
+        "garantia",
+        "garantia_fin",
+        "vida_util_estimada_meses",
+        "vida_util_restante_meses",
+        "procedencia",
+        "condicion_actual",
+        "requiere_mantenimiento_inicial",
+        "fecha_reacondicionamiento",
+        "costo_reacondicionamiento",
+        "herramienta_observacion",
+      ] as const;
+      const tieneAlgunoHerramienta = HER_KEYS.some((k) => k in body);
+      if (tieneAlgunoHerramienta) {
+        const r = parseHerramientaPayload(body);
+        if (!r.ok) return NextResponse.json(errorResponse(r.error), { status: 400 });
+        for (const k of HER_KEYS) {
+          if (k in body) {
+            (patch as Record<string, unknown>)[k] = (r.fields as Record<string, unknown>)[k];
+          }
+        }
+        // Si cambió la condición y vino una nueva, mantener el espejo legacy
+        // sincronizado.
+        if ("condicion_alta" in body) {
+          const c = r.fields.condicion_alta;
+          patch.estado_herramienta = c === "nueva" ? "nueva" : c == null ? null : "usada";
+        }
+      }
     }
 
     if (Object.keys(patch).length === 0) {

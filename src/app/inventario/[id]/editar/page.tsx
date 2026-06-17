@@ -10,6 +10,12 @@ import { generarEan13 } from "@/lib/inventario/ean13";
 import type { MetodoValuacion } from "@/lib/inventario/types";
 import ProductImageUploader from "@/components/inventario/ProductImageUploader";
 import SelectFromList from "@/components/inventario/SelectFromList";
+import HerramientaCondicionForm, {
+  EMPTY_HERRAMIENTA,
+  buildHerramientaPayload,
+  validateHerramientaForm,
+  type HerramientaCondicionData,
+} from "@/components/inventario/HerramientaCondicionForm";
 
 // Opciones estándar de unidad de medida (UX simplificada gastro)
 const UNIDADES_OPCIONES = [
@@ -38,9 +44,9 @@ export default function EditarProductoPage() {
   // descripcion live separately because form se inicializa al cargar
   const [descripcion, setDescripcion] = useState("");
   const [tipoInv, setTipoInv] = useState<"material" | "herramienta">("material");
-  // Solo aplica si tipoInv='herramienta'. Default 'nueva' para no romper UI cuando
-  // el producto aún no tiene valor cargado (productos legacy).
-  const [estadoHerramienta, setEstadoHerramienta] = useState<"nueva" | "usada">("nueva");
+  // Solo aplica si tipoInv='herramienta'. Form de condición al alta + campos
+  // condicionales. Se hidrata desde el producto al cargar.
+  const [herramientaData, setHerramientaData] = useState<HerramientaCondicionData>(EMPTY_HERRAMIENTA);
   const [form, setForm] = useState({
     nombre: "",
     sku: "",
@@ -155,7 +161,33 @@ export default function EditarProductoPage() {
       const markupMin = costo > 0 && min > 0 ? ((min - costo) / costo) * 100 : 0;
       const markupMay = costo > 0 && may > 0 ? ((may - costo) / costo) * 100 : 0;
       setTipoInv((p.tipo_inventario as "material" | "herramienta" | undefined) ?? "material");
-      setEstadoHerramienta(p.estado_herramienta === "usada" ? "usada" : "nueva");
+      // Hidratar form de condición. Default 'nueva' para productos legacy.
+      const condAlta: HerramientaCondicionData["condicion_alta"] =
+        p.condicion_alta === "usada" || p.condicion_alta === "reacondicionada"
+          ? p.condicion_alta
+          : p.estado_herramienta === "usada"
+          ? "usada"
+          : "nueva";
+      setHerramientaData({
+        condicion_alta: condAlta,
+        fecha_compra: p.fecha_compra ?? "",
+        proveedor_id: p.proveedor_id ?? null,
+        costo_adquisicion: p.costo_adquisicion != null ? String(p.costo_adquisicion) : "",
+        numero_comprobante: p.numero_comprobante ?? "",
+        garantia: Boolean(p.garantia),
+        garantia_fin: p.garantia_fin ?? "",
+        vida_util_estimada_meses:
+          p.vida_util_estimada_meses != null ? String(p.vida_util_estimada_meses) : "",
+        procedencia: (p.procedencia as HerramientaCondicionData["procedencia"]) ?? "",
+        condicion_actual: (p.condicion_actual as HerramientaCondicionData["condicion_actual"]) ?? "",
+        vida_util_restante_meses:
+          p.vida_util_restante_meses != null ? String(p.vida_util_restante_meses) : "",
+        requiere_mantenimiento_inicial: Boolean(p.requiere_mantenimiento_inicial),
+        fecha_reacondicionamiento: p.fecha_reacondicionamiento ?? "",
+        costo_reacondicionamiento:
+          p.costo_reacondicionamiento != null ? String(p.costo_reacondicionamiento) : "",
+        herramienta_observacion: p.herramienta_observacion ?? "",
+      });
       setForm({
         nombre: p.nombre,
         sku: p.sku,
@@ -310,6 +342,11 @@ export default function EditarProductoPage() {
         return;
       }
 
+      if (tipoInv === "herramienta") {
+        const errH = validateHerramientaForm(herramientaData);
+        if (errH) { showErr(errH); return; }
+      }
+
       // Código de barras = NUMÉRICO escaneable (EAN-13). El código interno / SKU
       // va en el campo sku.
       const codigoBarras = form.codigo_barras.trim();
@@ -368,7 +405,9 @@ export default function EditarProductoPage() {
         // preservando el valor existente en productos ya creados (compatibilidad).
         codigo_barras_interno: false,
         tipo_inventario: tipoInv,
-        estado_herramienta: tipoInv === "herramienta" ? estadoHerramienta : null,
+        ...(tipoInv === "herramienta"
+          ? (buildHerramientaPayload(herramientaData) as Record<string, unknown>)
+          : {}),
       };
 
       console.log("[inventario/editar] sending PATCH", { id, payloadKeys: Object.keys(updatePayload) });
@@ -540,34 +579,15 @@ export default function EditarProductoPage() {
           </div>
 
           {tipoInv === "herramienta" && (
-            <div>
-              <label className={labelClass}>Estado de la herramienta</label>
-              <div className="grid grid-cols-2 gap-2 max-w-md">
-                {(["nueva", "usada"] as const).map((opt) => {
-                  const activo = estadoHerramienta === opt;
-                  const labelOpt = opt === "nueva" ? "Nueva" : "Usada";
-                  const descOpt = opt === "nueva"
-                    ? "Adquisición reciente, sin uso previo."
-                    : "Ya tiene uso o vino de otra obra.";
-                  return (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => setEstadoHerramienta(opt)}
-                      className={`text-left rounded-lg border px-3 py-2 transition-colors ${
-                        activo
-                          ? "border-amber-400 bg-amber-50 ring-1 ring-amber-300"
-                          : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                      }`}
-                    >
-                      <div className={`text-sm font-semibold ${activo ? "text-amber-800" : "text-slate-700"}`}>
-                        {labelOpt}
-                      </div>
-                      <div className="text-[11px] text-slate-500 mt-0.5 leading-snug">{descOpt}</div>
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="border-t border-slate-100 pt-6">
+              <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold mb-3">
+                Condición al alta
+              </p>
+              <HerramientaCondicionForm
+                value={herramientaData}
+                onChange={setHerramientaData}
+                proveedores={proveedores}
+              />
             </div>
           )}
 

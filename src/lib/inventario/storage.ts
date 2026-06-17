@@ -47,6 +47,23 @@ interface ProductoRow {
   tiempo_prep_minutos?: number | null;
   descripcion?: string | null;
   estado_herramienta?: string | null;
+  condicion_alta?: string | null;
+  estado_operativo?: string | null;
+  fecha_compra?: string | null;
+  proveedor_id?: string | null;
+  proveedor_nombre?: string | null;
+  costo_adquisicion?: string | number | null;
+  numero_comprobante?: string | null;
+  garantia?: boolean | null;
+  garantia_fin?: string | null;
+  vida_util_estimada_meses?: number | null;
+  vida_util_restante_meses?: number | null;
+  procedencia?: string | null;
+  condicion_actual?: string | null;
+  requiere_mantenimiento_inicial?: boolean | null;
+  fecha_reacondicionamiento?: string | null;
+  costo_reacondicionamiento?: string | number | null;
+  herramienta_observacion?: string | null;
 }
 
 interface MovimientoRow {
@@ -124,9 +141,45 @@ function rowToProducto(row: ProductoRow): Producto {
     // Fallback: cualquier tipo legacy ('consumible', 'accesorio', etc.) cae
     // como 'material' para que el producto aparezca en la pestaña por defecto.
     tipo_inventario: row.tipo_inventario === "herramienta" ? "herramienta" : "material",
-    estado_herramienta: row.estado_herramienta === "usada" || row.estado_herramienta === "nueva"
-      ? row.estado_herramienta
-      : null,
+    estado_herramienta:
+      row.estado_herramienta === "usada" || row.estado_herramienta === "nueva"
+        ? row.estado_herramienta
+        : null,
+    condicion_alta:
+      row.condicion_alta === "nueva" || row.condicion_alta === "usada" || row.condicion_alta === "reacondicionada"
+        ? row.condicion_alta
+        : null,
+    estado_operativo:
+      row.estado_operativo === "disponible" ||
+      row.estado_operativo === "asignada" ||
+      row.estado_operativo === "en_mantenimiento" ||
+      row.estado_operativo === "baja"
+        ? row.estado_operativo
+        : null,
+    fecha_compra: row.fecha_compra ?? null,
+    proveedor_id: row.proveedor_id ?? null,
+    proveedor_nombre: row.proveedor_nombre ?? null,
+    costo_adquisicion: row.costo_adquisicion != null ? Number(row.costo_adquisicion) : null,
+    numero_comprobante: row.numero_comprobante ?? null,
+    garantia: row.garantia ?? null,
+    garantia_fin: row.garantia_fin ?? null,
+    vida_util_estimada_meses: row.vida_util_estimada_meses ?? null,
+    vida_util_restante_meses: row.vida_util_restante_meses ?? null,
+    procedencia:
+      row.procedencia === "compra_usada" || row.procedencia === "ya_existia" || row.procedencia === "otra"
+        ? row.procedencia
+        : null,
+    condicion_actual:
+      row.condicion_actual === "buena" ||
+      row.condicion_actual === "regular" ||
+      row.condicion_actual === "requiere_revision"
+        ? row.condicion_actual
+        : null,
+    requiere_mantenimiento_inicial: row.requiere_mantenimiento_inicial ?? null,
+    fecha_reacondicionamiento: row.fecha_reacondicionamiento ?? null,
+    costo_reacondicionamiento:
+      row.costo_reacondicionamiento != null ? Number(row.costo_reacondicionamiento) : null,
+    herramienta_observacion: row.herramienta_observacion ?? null,
   };
 }
 
@@ -269,12 +322,34 @@ export async function saveProducto(
         : 0,
     descripcion: datos.descripcion ?? null,
     tipo_inventario: datos.tipo_inventario ?? "material",
-    // Solo enviamos estado_herramienta cuando es una herramienta. En materiales
-    // u otros tipos el server lo recibe como null/undefined y queda NULL en BD.
+    // estado_herramienta (legacy): se mantiene espejo para compatibilidad con
+    // reportes viejos. Nuevas filas escriben 'nueva' a menos que la nueva
+    // condicion_alta sea 'usada' o 'reacondicionada' (que cuentan como "no
+    // nueva" para el legacy).
     estado_herramienta:
       datos.tipo_inventario === "herramienta"
-        ? (datos.estado_herramienta === "usada" ? "usada" : "nueva")
+        ? datos.condicion_alta === "usada" || datos.condicion_alta === "reacondicionada"
+          ? "usada"
+          : "nueva"
         : null,
+    // Nuevos campos de herramienta (solo se envían cuando aplica).
+    condicion_alta: datos.tipo_inventario === "herramienta" ? datos.condicion_alta ?? "nueva" : null,
+    estado_operativo: datos.tipo_inventario === "herramienta" ? datos.estado_operativo ?? "disponible" : null,
+    fecha_compra: datos.fecha_compra ?? null,
+    proveedor_id: datos.proveedor_id ?? null,
+    proveedor_nombre: datos.proveedor_nombre ?? null,
+    costo_adquisicion: datos.costo_adquisicion ?? null,
+    numero_comprobante: datos.numero_comprobante ?? null,
+    garantia: datos.garantia ?? null,
+    garantia_fin: datos.garantia_fin ?? null,
+    vida_util_estimada_meses: datos.vida_util_estimada_meses ?? null,
+    vida_util_restante_meses: datos.vida_util_restante_meses ?? null,
+    procedencia: datos.procedencia ?? null,
+    condicion_actual: datos.condicion_actual ?? null,
+    requiere_mantenimiento_inicial: datos.requiere_mantenimiento_inicial ?? null,
+    fecha_reacondicionamiento: datos.fecha_reacondicionamiento ?? null,
+    costo_reacondicionamiento: datos.costo_reacondicionamiento ?? null,
+    herramienta_observacion: datos.herramienta_observacion ?? null,
   };
 
   const res = await fetch("/api/productos", {
@@ -343,6 +418,27 @@ export async function updateProducto(
   if (datos.descripcion !== undefined) body.descripcion = datos.descripcion;
   if (datos.tipo_inventario !== undefined) body.tipo_inventario = datos.tipo_inventario;
   if (datos.estado_herramienta !== undefined) body.estado_herramienta = datos.estado_herramienta;
+  if (datos.condicion_alta !== undefined) body.condicion_alta = datos.condicion_alta;
+  if (datos.estado_operativo !== undefined) body.estado_operativo = datos.estado_operativo;
+  if (datos.fecha_compra !== undefined) body.fecha_compra = datos.fecha_compra;
+  if (datos.proveedor_id !== undefined) body.proveedor_id = datos.proveedor_id;
+  if (datos.proveedor_nombre !== undefined) body.proveedor_nombre = datos.proveedor_nombre;
+  if (datos.costo_adquisicion !== undefined) body.costo_adquisicion = datos.costo_adquisicion;
+  if (datos.numero_comprobante !== undefined) body.numero_comprobante = datos.numero_comprobante;
+  if (datos.garantia !== undefined) body.garantia = datos.garantia;
+  if (datos.garantia_fin !== undefined) body.garantia_fin = datos.garantia_fin;
+  if (datos.vida_util_estimada_meses !== undefined) body.vida_util_estimada_meses = datos.vida_util_estimada_meses;
+  if (datos.vida_util_restante_meses !== undefined) body.vida_util_restante_meses = datos.vida_util_restante_meses;
+  if (datos.procedencia !== undefined) body.procedencia = datos.procedencia;
+  if (datos.condicion_actual !== undefined) body.condicion_actual = datos.condicion_actual;
+  if (datos.requiere_mantenimiento_inicial !== undefined)
+    body.requiere_mantenimiento_inicial = datos.requiere_mantenimiento_inicial;
+  if (datos.fecha_reacondicionamiento !== undefined)
+    body.fecha_reacondicionamiento = datos.fecha_reacondicionamiento;
+  if (datos.costo_reacondicionamiento !== undefined)
+    body.costo_reacondicionamiento = datos.costo_reacondicionamiento;
+  if (datos.herramienta_observacion !== undefined)
+    body.herramienta_observacion = datos.herramienta_observacion;
 
   const res = await fetch(`/api/productos/${encodeURIComponent(id)}`, {
     method: "PATCH",
