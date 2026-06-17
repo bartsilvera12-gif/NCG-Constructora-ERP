@@ -68,7 +68,7 @@ const TAB_LABELS: Record<TabId, string> = {
  * trazabilidad/historial financiero) viven en /control-obra/[id].
  * Comentarios se muestra como "Notas".
  */
-const TAB_IDS_OBRA: readonly TabId[] = ["resumen", "datos", "tareas", "archivos", "comentarios"];
+const TAB_IDS_OBRA: readonly TabId[] = ["resumen", "datos", "archivos", "comentarios"];
 
 function normalizeTab(raw: string | null | undefined): TabId {
   if (!raw) return "resumen";
@@ -478,6 +478,7 @@ export default function ProyectoDetalleInner({
           ? TAB_IDS_OBRA
           : TAB_IDS.filter((t) => {
               if (t === "presupuesto" || t === "materiales") return false;
+              if (t === "rentabilidad" || t === "tareas") return false;
               return true;
             })
         ).map((t) => (
