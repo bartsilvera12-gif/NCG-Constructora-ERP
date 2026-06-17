@@ -648,23 +648,23 @@ export default function Sidebar() {
                     onClick={() => toggleSection(section.label)}
                     title={`${isSectionCollapsed ? "Expandir" : "Colapsar"} ${section.label}`}
                     aria-expanded={!isSectionCollapsed}
-                    className="group mb-1.5 flex w-full items-center justify-between gap-2 rounded-md px-3 py-1 text-left transition-colors hover:bg-[color:var(--zentra-sidebar-hover)]"
+                    className="group mb-2 flex w-full items-center justify-between gap-2 rounded-md px-3 py-1.5 text-left transition-colors hover:bg-[color:var(--zentra-sidebar-hover)]"
                   >
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex items-center gap-2">
                       <span
-                        className={`h-1.5 w-1.5 rounded-full transition-colors ${
+                        className={`h-2 w-2 rounded-full transition-colors ${
                           hasActiveItem
                             ? "bg-[color:var(--zentra-sidebar-accent)]"
                             : "bg-slate-500/60"
                         }`}
                         aria-hidden
                       />
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 group-hover:text-slate-200">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-slate-300 group-hover:text-slate-100">
                         {section.label}
                       </span>
                     </span>
                     <ChevronDown
-                      className={`h-3.5 w-3.5 shrink-0 text-slate-500 transition-transform group-hover:text-slate-300 ${
+                      className={`h-5 w-5 shrink-0 text-slate-400 transition-transform group-hover:text-slate-200 ${
                         isSectionCollapsed ? "-rotate-90" : ""
                       }`}
                       aria-hidden
