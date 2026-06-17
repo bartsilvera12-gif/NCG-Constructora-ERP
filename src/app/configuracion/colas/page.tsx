@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import type { ChatQueueAdminRow } from "@/lib/chat/queue-admin-repo";
 import { apiCreateQueueDraft, apiListQueues } from "./queue-admin-api";
@@ -22,7 +22,16 @@ const STRAT_LABEL: Record<string, string> = {
   manual_pull: "Manual (sin autoasignación)",
 };
 
-export default function ConfiguracionColasPage() {
+export default function ConfiguracionColasPageWrapper() {
+  // useSearchParams() requiere Suspense en Next 16 para no romper el prerender.
+  return (
+    <Suspense fallback={null}>
+      <ConfiguracionColasPage />
+    </Suspense>
+  );
+}
+
+function ConfiguracionColasPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const colaGuardadaOk = searchParams?.get("cola_guardada") === "1";

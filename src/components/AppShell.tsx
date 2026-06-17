@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "./layout/Sidebar";
 import Header from "./layout/Header";
@@ -17,7 +18,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div id="neura-app-shell" className="flex h-svh min-h-0 overflow-hidden bg-[#F8FAFC]">
-      <Sidebar />
+      {/* Sidebar usa useSearchParams() para deep-links al panel de filtros.
+          En Next 16 hay que envolverlo en Suspense para que el prerender no
+          dispare CSR-bailout en paginas estaticas (/404, /configuracion/colas). */}
+      <Suspense fallback={null}>
+        <Sidebar />
+      </Suspense>
       <div id="neura-main-column" className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <Header />
         {/* pb-20 en mobile reserva ~80px para que el contenido scrolleable no quede
