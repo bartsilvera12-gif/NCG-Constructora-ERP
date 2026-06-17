@@ -14,6 +14,7 @@ export type Gasto = {
   frecuencia?: string;
   fecha: string;
   created_at: string;
+  proyecto_id?: string | null;
 };
 
 export type GastoInput = {
@@ -39,6 +40,7 @@ function mapRow(r: Record<string, unknown>): Gasto {
     frecuencia: r.frecuencia as string | undefined,
     fecha: (r.fecha as string) ?? "",
     created_at: (r.created_at as string) ?? "",
+    proyecto_id: (r.proyecto_id as string | null | undefined) ?? null,
   };
 }
 
