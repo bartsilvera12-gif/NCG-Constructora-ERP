@@ -20,19 +20,24 @@ export async function GET(request: Request) {
     const prioridad = sp.get("prioridad");
     const rc = sp.get("responsable_comercial_id");
     const rt = sp.get("responsable_tecnico_id");
-    const archivado = sp.get("archivado") === "1";
+    const clienteIdFilter = sp.get("cliente_id");
+    const archivadoParam = sp.get("archivado");
+    const archivado = archivadoParam === "1";
+    const incluirTodos = archivadoParam === "all";
     const qRaw = sp.get("q");
 
     const sb = await getChatServiceClientForEmpresa(auth.empresaId);
     const empresaId = auth.empresaId;
 
     function proyectosFiltrados() {
-      let qq = sb.from("proyectos").select("*").eq("empresa_id", empresaId).eq("archivado", archivado);
+      let qq = sb.from("proyectos").select("*").eq("empresa_id", empresaId);
+      if (!incluirTodos) qq = qq.eq("archivado", archivado);
       if (estadoId) qq = qq.eq("estado_id", estadoId);
       if (tipoId) qq = qq.eq("tipo_id", tipoId);
       if (prioridad && PRIORIDADES.has(prioridad)) qq = qq.eq("prioridad", prioridad);
       if (rc) qq = qq.eq("responsable_comercial_id", rc);
       if (rt) qq = qq.eq("responsable_tecnico_id", rt);
+      if (clienteIdFilter) qq = qq.eq("cliente_id", clienteIdFilter);
       return qq;
     }
 
@@ -87,8 +92,8 @@ export async function GET(request: Request) {
           .from("proyectos")
           .select("*")
           .eq("empresa_id", empresaId)
-          .eq("archivado", archivado)
           .in("id", allIds);
+        if (!incluirTodos) q = q.eq("archivado", archivado);
         if (estadoId) q = q.eq("estado_id", estadoId);
         if (tipoId) q = q.eq("tipo_id", tipoId);
         if (prioridad && PRIORIDADES.has(prioridad)) q = q.eq("prioridad", prioridad);

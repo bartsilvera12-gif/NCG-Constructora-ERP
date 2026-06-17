@@ -57,6 +57,7 @@ import {
   getErrorDiaVencimientoTributario,
   type TributarioFormState,
 } from "@/components/clientes/ClientePerfilTributarioForm";
+import ClienteProyectosPanel from "@/components/clientes/ClienteProyectosPanel";
 // ── Estilos ────────────────────────────────────────────────────────────────────
 
 const inputClass =
@@ -2085,11 +2086,7 @@ export default function ClienteDetailPage() {
 
           {/* ── PROYECTOS ────────────────────────────────────────────────── */}
           {activeTab === "proyectos" && (
-            <PlaceholderTab
-              icon="📁"
-              title="Proyectos"
-              desc="Proyectos en curso y finalizados asociados a este cliente, con etapas y responsables."
-            />
+            <ClienteProyectosPanel clienteId={id} />
           )}
 
           {/* ── ACTIVIDAD ────────────────────────────────────────────────── */}
