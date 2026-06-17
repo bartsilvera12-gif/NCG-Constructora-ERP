@@ -82,8 +82,30 @@ function clienteNombre(p: Proyecto): string {
   return a || b || "—";
 }
 
+function readTabFromHash(): TabId {
+  if (typeof window === "undefined") return "rentabilidad";
+  const h = (window.location.hash || "").replace(/^#/, "");
+  return (TABS.find((t) => t.id === h)?.id ?? "rentabilidad") as TabId;
+}
+
 export default function ControlObraDetalleClient({ projectId }: { projectId: string }) {
+  // El tab inicial puede venir en el hash (ej: /control-obra/abc#materiales)
+  // para permitir deep-linking desde otros módulos. Se actualiza con hashchange
+  // por si el usuario edita la URL o el navegador navega entre anchors.
   const [tab, setTab] = useState<TabId>("rentabilidad");
+  useEffect(() => {
+    setTab(readTabFromHash());
+    const onHash = () => setTab(readTabFromHash());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+  const handleSetTab = (id: TabId) => {
+    setTab(id);
+    if (typeof window !== "undefined") {
+      // replaceState evita meter una entrada nueva en el historial por cada click.
+      window.history.replaceState(null, "", `#${id}`);
+    }
+  };
   const [proyecto, setProyecto] = useState<Proyecto | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -136,7 +158,7 @@ export default function ControlObraDetalleClient({ projectId }: { projectId: str
           <button
             key={t.id}
             type="button"
-            onClick={() => setTab(t.id)}
+            onClick={() => handleSetTab(t.id)}
             className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
               tab === t.id
                 ? "border border-[#4FAEB2]/40 bg-[#E5F4F4] text-[#3F8E91]"

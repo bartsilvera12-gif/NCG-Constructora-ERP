@@ -123,7 +123,7 @@ export default function RentabilidadObra({ projectId }: { projectId: string }) {
               value={data.costo_materiales}
               extra={
                 <Link
-                  href={`/control-obra/${projectId}`}
+                  href={`/control-obra/${projectId}#materiales`}
                   className="text-[11px] font-medium text-[#4FAEB2] hover:underline"
                 >
                   Ver detalle de materiales →

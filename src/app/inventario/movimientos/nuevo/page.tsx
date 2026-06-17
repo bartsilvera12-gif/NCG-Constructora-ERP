@@ -352,47 +352,50 @@ export default function NuevoMovimientoPage() {
           </p>
 
           {/* Vista previa del impacto en stock */}
-          {productoSeleccionado && form.cantidad !== "" && (
-            <div className="rounded-lg border border-gray-200 p-4 bg-gray-50 text-sm space-y-1">
-              <p className="font-medium text-gray-700 mb-2">Vista previa del impacto</p>
-              <div className="flex justify-between text-gray-600">
-                <span>Stock actual</span>
-                <span className="font-semibold tabular-nums">
-                  {productoSeleccionado.stock_actual} uds.
-                </span>
-              </div>
-              <div className="flex justify-between text-gray-600">
-                <span>Movimiento ({form.tipo})</span>
-                <span className={`font-semibold tabular-nums ${
-                  form.tipo === "ENTRADA"
-                    ? "text-green-600"
-                    : form.tipo === "SALIDA"
-                    ? "text-red-600"
-                    : "text-yellow-600"
-                }`}>
-                  {form.tipo === "ENTRADA" ? "+" : form.tipo === "SALIDA" ? "−" : ""}
-                  {form.tipo !== "AJUSTE"
-                    ? Math.abs(parseFloat(form.cantidad) || 0)
-                    : parseFloat(form.cantidad) || 0}{" "}
-                  uds.
-                </span>
-              </div>
-              <div className="border-t pt-2 flex justify-between font-semibold text-gray-800">
-                <span>Stock resultante</span>
-                <span className="tabular-nums">
-                  {Math.max(
-                    0,
+          {productoSeleccionado && form.cantidad !== "" && (() => {
+            const unidad = productoSeleccionado.unidad_medida || "uds.";
+            return (
+              <div className="rounded-lg border border-gray-200 p-4 bg-gray-50 text-sm space-y-1">
+                <p className="font-medium text-gray-700 mb-2">Vista previa del impacto</p>
+                <div className="flex justify-between text-gray-600">
+                  <span>Stock actual</span>
+                  <span className="font-semibold tabular-nums">
+                    {productoSeleccionado.stock_actual} {unidad}
+                  </span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>Movimiento ({form.tipo})</span>
+                  <span className={`font-semibold tabular-nums ${
                     form.tipo === "ENTRADA"
-                      ? productoSeleccionado.stock_actual + Math.abs(parseFloat(form.cantidad) || 0)
+                      ? "text-green-600"
                       : form.tipo === "SALIDA"
-                      ? productoSeleccionado.stock_actual - Math.abs(parseFloat(form.cantidad) || 0)
-                      : productoSeleccionado.stock_actual + (parseFloat(form.cantidad) || 0)
-                  )}{" "}
-                  uds.
-                </span>
+                      ? "text-red-600"
+                      : "text-yellow-600"
+                  }`}>
+                    {form.tipo === "ENTRADA" ? "+" : form.tipo === "SALIDA" ? "−" : ""}
+                    {form.tipo !== "AJUSTE"
+                      ? Math.abs(parseFloat(form.cantidad) || 0)
+                      : parseFloat(form.cantidad) || 0}{" "}
+                    {unidad}
+                  </span>
+                </div>
+                <div className="border-t pt-2 flex justify-between font-semibold text-gray-800">
+                  <span>Stock resultante</span>
+                  <span className="tabular-nums">
+                    {Math.max(
+                      0,
+                      form.tipo === "ENTRADA"
+                        ? productoSeleccionado.stock_actual + Math.abs(parseFloat(form.cantidad) || 0)
+                        : form.tipo === "SALIDA"
+                        ? productoSeleccionado.stock_actual - Math.abs(parseFloat(form.cantidad) || 0)
+                        : productoSeleccionado.stock_actual + (parseFloat(form.cantidad) || 0)
+                    )}{" "}
+                    {unidad}
+                  </span>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Acciones */}
           <div className="flex gap-4 pt-2">
