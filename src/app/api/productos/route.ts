@@ -16,7 +16,7 @@ const PRODUCTO_COLS =
   "codigo_barras, codigo_interno, codigo_barras_interno, imagen_path, imagen_url, " +
   "categoria_principal_id, ubicacion_principal_id, proveedor_principal_id, " +
   "es_vendible, es_insumo, controla_stock, valorizado, unidad_compra, unidad_receta, " +
-  "factor_compra_receta, tiempo_prep_minutos, descripcion, tipo_inventario";
+  "factor_compra_receta, tiempo_prep_minutos, descripcion, tipo_inventario, estado_herramienta";
 
 function toNumber(v: unknown): unknown {
   return typeof v === "string" ? Number(v) : v;
@@ -139,6 +139,12 @@ export async function POST(request: NextRequest) {
       body.tipo_inventario === "herramienta"
         ? (body.tipo_inventario as string)
         : "material";
+    // Solo persistimos estado_herramienta para herramientas. En materiales queda
+    // NULL aunque el cliente lo envíe (defensa contra valores espurios).
+    const estadoHerramienta =
+      tipoInventario === "herramienta"
+        ? (body.estado_herramienta === "usada" ? "usada" : "nueva")
+        : null;
     // Precios: minorista es el precio principal. Fallback a precio_venta para
     // compatibilidad si el cliente no envía minorista. Mayorista cae a minorista.
     const precioVentaBody = Number(body.precio_venta ?? 0) || 0;
@@ -219,6 +225,7 @@ export async function POST(request: NextRequest) {
       ubicacion_principal_id: ubicacionPrincipalId,
       proveedor_principal_id: proveedorPrincipalId,
       tipo_inventario: tipoInventario,
+      estado_herramienta: estadoHerramienta,
     };
     if (esVendible !== undefined) insertPayload.es_vendible = esVendible;
     if (esInsumo !== undefined) insertPayload.es_insumo = esInsumo;

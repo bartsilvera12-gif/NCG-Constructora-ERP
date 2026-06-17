@@ -211,6 +211,11 @@ function readPedidoBrief(
   brief: Record<string, unknown> | null | undefined
 ): PedidoBrief | null {
   if (!brief || typeof brief !== "object") return null;
+  // Obras NCG generadas desde presupuesto o venta de obra usan el mismo brief
+  // con items (las partidas), pero deben renderizarse como proyecto común
+  // (cliente, responsables, SLA, fechas), no como pedido de distribuidora.
+  const source = typeof brief.source === "string" ? brief.source : null;
+  if (source === "presupuesto_obra" || source === "venta_obra") return null;
   const m = (brief as Record<string, unknown>).modalidad;
   const modalidad = m === "local" || m === "delivery" || m === "carry_out" ? m : null;
   const itemsRaw = Array.isArray(brief.items) ? (brief.items as Array<Record<string, unknown>>) : [];

@@ -54,6 +54,9 @@ export interface Producto {
   descripcion?: string | null;
   /** Clasificación NCG (constructora): material / herramienta. */
   tipo_inventario?: "material" | "herramienta";
+  /** Solo aplica si tipo_inventario='herramienta'. Distingue herramienta nueva
+   *  de usada (puede afectar costo de reposición y reportes). NULL en el resto. */
+  estado_herramienta?: "nueva" | "usada" | null;
 }
 
 export interface MovimientoInventario {

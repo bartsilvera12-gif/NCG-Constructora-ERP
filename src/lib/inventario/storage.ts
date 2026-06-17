@@ -46,6 +46,7 @@ interface ProductoRow {
   factor_compra_receta?: string | number | null;
   tiempo_prep_minutos?: number | null;
   descripcion?: string | null;
+  estado_herramienta?: string | null;
 }
 
 interface MovimientoRow {
@@ -123,6 +124,9 @@ function rowToProducto(row: ProductoRow): Producto {
     // Fallback: cualquier tipo legacy ('consumible', 'accesorio', etc.) cae
     // como 'material' para que el producto aparezca en la pestaña por defecto.
     tipo_inventario: row.tipo_inventario === "herramienta" ? "herramienta" : "material",
+    estado_herramienta: row.estado_herramienta === "usada" || row.estado_herramienta === "nueva"
+      ? row.estado_herramienta
+      : null,
   };
 }
 
@@ -265,6 +269,12 @@ export async function saveProducto(
         : 0,
     descripcion: datos.descripcion ?? null,
     tipo_inventario: datos.tipo_inventario ?? "material",
+    // Solo enviamos estado_herramienta cuando es una herramienta. En materiales
+    // u otros tipos el server lo recibe como null/undefined y queda NULL en BD.
+    estado_herramienta:
+      datos.tipo_inventario === "herramienta"
+        ? (datos.estado_herramienta === "usada" ? "usada" : "nueva")
+        : null,
   };
 
   const res = await fetch("/api/productos", {
@@ -331,6 +341,8 @@ export async function updateProducto(
   if (typeof datos.tiempo_prep_minutos === "number" && datos.tiempo_prep_minutos >= 0)
     body.tiempo_prep_minutos = datos.tiempo_prep_minutos;
   if (datos.descripcion !== undefined) body.descripcion = datos.descripcion;
+  if (datos.tipo_inventario !== undefined) body.tipo_inventario = datos.tipo_inventario;
+  if (datos.estado_herramienta !== undefined) body.estado_herramienta = datos.estado_herramienta;
 
   const res = await fetch(`/api/productos/${encodeURIComponent(id)}`, {
     method: "PATCH",

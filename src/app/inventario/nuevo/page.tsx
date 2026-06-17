@@ -73,6 +73,9 @@ export default function NuevoProductoPage() {
   // Selector inicial de tipo — aplica presets a los flags y persiste tipo_inventario.
   type TipoInventario = "material" | "herramienta" | null;
   const [tipoInventario, setTipoInventario] = useState<TipoInventario>(null);
+  // Solo aplica a herramientas. 'nueva' por defecto: la mayoría de las altas
+  // son adquisiciones nuevas; 'usada' se elige explícitamente.
+  const [estadoHerramienta, setEstadoHerramienta] = useState<"nueva" | "usada">("nueva");
   function aplicarTipoInventario(tipo: Exclude<TipoInventario, null>) {
     setTipoInventario(tipo);
     if (tipo === "material") {
@@ -388,6 +391,7 @@ export default function NuevoProductoPage() {
           controla_stock: controlaStock,
           valorizado: valorizado,
           tipo_inventario: tipoInventario ?? "material",
+          estado_herramienta: tipoInventario === "herramienta" ? estadoHerramienta : null,
           unidad_compra: unidadCompra.trim() || null,
           unidad_receta: unidadReceta.trim() || null,
           factor_compra_receta: Math.max(parseFloat(factorCompraReceta) || 1, 0.0001),
@@ -650,6 +654,38 @@ export default function NuevoProductoPage() {
                 ))}
               </select>
             </div>
+
+            {tipoInventario === "herramienta" && (
+              <div>
+                <label className={labelClass}>Estado de la herramienta</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(["nueva", "usada"] as const).map((opt) => {
+                    const activo = estadoHerramienta === opt;
+                    const labelOpt = opt === "nueva" ? "Nueva" : "Usada";
+                    const descOpt = opt === "nueva"
+                      ? "Adquisición reciente, sin uso previo."
+                      : "Ya tiene uso o vino de otra obra.";
+                    return (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => setEstadoHerramienta(opt)}
+                        className={`text-left rounded-lg border px-3 py-2 transition-colors ${
+                          activo
+                            ? "border-amber-400 bg-amber-50 ring-1 ring-amber-300"
+                            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className={`text-sm font-semibold ${activo ? "text-amber-800" : "text-slate-700"}`}>
+                          {labelOpt}
+                        </div>
+                        <div className="text-[11px] text-slate-500 mt-0.5 leading-snug">{descOpt}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Código de barras (EAN-13 numérico, escaneable con lector) */}

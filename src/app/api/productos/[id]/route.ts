@@ -11,7 +11,7 @@ const PRODUCTO_COLS =
   "codigo_barras, codigo_interno, codigo_barras_interno, imagen_path, imagen_url, " +
   "categoria_principal_id, ubicacion_principal_id, proveedor_principal_id, " +
   "es_vendible, es_insumo, controla_stock, valorizado, unidad_compra, unidad_receta, " +
-  "factor_compra_receta, tiempo_prep_minutos, descripcion";
+  "factor_compra_receta, tiempo_prep_minutos, descripcion, tipo_inventario, estado_herramienta";
 
 function toNumber(v: unknown): unknown {
   return typeof v === "string" ? Number(v) : v;
@@ -172,6 +172,18 @@ export async function PATCH(
       patch.tiempo_prep_minutos = Math.floor(body.tiempo_prep_minutos);
     if (body.descripcion !== undefined)
       patch.descripcion = body.descripcion == null ? null : String(body.descripcion).trim() || null;
+    if (body.tipo_inventario === "herramienta" || body.tipo_inventario === "material") {
+      patch.tipo_inventario = body.tipo_inventario;
+    }
+    // Solo persistimos estado_herramienta cuando el producto es (o pasa a ser)
+    // herramienta. Si en este PATCH el tipo cae a 'material', lo limpiamos a
+    // null para no dejar el campo huérfano. Si el tipo no se está tocando y el
+    // cliente envía un estado, asumimos que el producto ya es herramienta.
+    if (patch.tipo_inventario === "material") {
+      patch.estado_herramienta = null;
+    } else if (body.estado_herramienta === "usada" || body.estado_herramienta === "nueva") {
+      patch.estado_herramienta = body.estado_herramienta;
+    }
 
     if (Object.keys(patch).length === 0) {
       const { data: existing, error: errGet } = await sb

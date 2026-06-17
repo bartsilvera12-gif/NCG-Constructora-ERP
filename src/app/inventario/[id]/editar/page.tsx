@@ -38,6 +38,9 @@ export default function EditarProductoPage() {
   // descripcion live separately because form se inicializa al cargar
   const [descripcion, setDescripcion] = useState("");
   const [tipoInv, setTipoInv] = useState<"material" | "herramienta">("material");
+  // Solo aplica si tipoInv='herramienta'. Default 'nueva' para no romper UI cuando
+  // el producto aún no tiene valor cargado (productos legacy).
+  const [estadoHerramienta, setEstadoHerramienta] = useState<"nueva" | "usada">("nueva");
   const [form, setForm] = useState({
     nombre: "",
     sku: "",
@@ -152,6 +155,7 @@ export default function EditarProductoPage() {
       const markupMin = costo > 0 && min > 0 ? ((min - costo) / costo) * 100 : 0;
       const markupMay = costo > 0 && may > 0 ? ((may - costo) / costo) * 100 : 0;
       setTipoInv((p.tipo_inventario as "material" | "herramienta" | undefined) ?? "material");
+      setEstadoHerramienta(p.estado_herramienta === "usada" ? "usada" : "nueva");
       setForm({
         nombre: p.nombre,
         sku: p.sku,
@@ -363,6 +367,8 @@ export default function EditarProductoPage() {
         // codigo_interno se OMITE del payload a propósito: el PATCH no lo toca,
         // preservando el valor existente en productos ya creados (compatibilidad).
         codigo_barras_interno: false,
+        tipo_inventario: tipoInv,
+        estado_herramienta: tipoInv === "herramienta" ? estadoHerramienta : null,
       };
 
       console.log("[inventario/editar] sending PATCH", { id, payloadKeys: Object.keys(updatePayload) });
@@ -532,6 +538,38 @@ export default function EditarProductoPage() {
               </select>
             </div>
           </div>
+
+          {tipoInv === "herramienta" && (
+            <div>
+              <label className={labelClass}>Estado de la herramienta</label>
+              <div className="grid grid-cols-2 gap-2 max-w-md">
+                {(["nueva", "usada"] as const).map((opt) => {
+                  const activo = estadoHerramienta === opt;
+                  const labelOpt = opt === "nueva" ? "Nueva" : "Usada";
+                  const descOpt = opt === "nueva"
+                    ? "Adquisición reciente, sin uso previo."
+                    : "Ya tiene uso o vino de otra obra.";
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setEstadoHerramienta(opt)}
+                      className={`text-left rounded-lg border px-3 py-2 transition-colors ${
+                        activo
+                          ? "border-amber-400 bg-amber-50 ring-1 ring-amber-300"
+                          : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                      }`}
+                    >
+                      <div className={`text-sm font-semibold ${activo ? "text-amber-800" : "text-slate-700"}`}>
+                        {labelOpt}
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-0.5 leading-snug">{descOpt}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Código de barras (EAN-13 numérico, escaneable con lector) */}
           <div>

@@ -585,6 +585,20 @@ export default function InventarioPage() {
                             if (i) return <Badge tone="success">Insumo</Badge>;
                             return null;
                           })()}
+                          {tab === "herramienta" && p.estado_herramienta && (
+                            <span
+                              title={p.estado_herramienta === "nueva"
+                                ? "Herramienta nueva (sin uso previo)"
+                                : "Herramienta usada"}
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                                p.estado_herramienta === "nueva"
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  : "bg-amber-50 text-amber-700 border border-amber-200"
+                              }`}
+                            >
+                              {p.estado_herramienta === "nueva" ? "Nueva" : "Usada"}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </td>
