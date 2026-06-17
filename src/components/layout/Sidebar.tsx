@@ -102,7 +102,6 @@ const MENU_STRUCTURE: MenuItem[] = [
 
   { key: "productos",        slug: "inventario",    label: "Productos",        href: "/inventario",             icon: Package },
   { key: "movimientos",      slug: "inventario",    label: "Movimientos",      href: "/inventario/movimientos", icon: ListChecks },
-  { key: "categorias",       slug: "inventario",    label: "Categorías",       href: "/inventario/categorias",  icon: ScrollText },
 
   { key: "pagos",            slug: "pagos",         label: "Pagos",            href: "/pagos",                  icon: Receipt },
   { key: "gastos",           slug: "gastos",        label: "Gastos",           href: "/gastos",                 icon: Receipt },
@@ -122,7 +121,7 @@ const MENU_SECTIONS: { label: string; keys: string[] }[] = [
   { label: "Comercial",  keys: ["clientes", "ventas", "comisiones"] },
   { label: "Obras",      keys: ["proyectos"] },
   { label: "Compras",    keys: ["compras", "proveedores"] },
-  { label: "Inventario", keys: ["productos", "movimientos", "categorias"] },
+  { label: "Inventario", keys: ["productos", "movimientos"] },
   { label: "Finanzas",   keys: ["pagos", "gastos", "reportes", "panel_financiero"] },
   { label: "RRHH",       keys: ["rrhh"] },
   { label: "Admin",      keys: ["configuracion"] },
