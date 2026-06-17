@@ -476,7 +476,15 @@ export default function ProductPickerModal({
                     </div>
                   </div>
 
-                  <div className="text-xs text-slate-500 pt-1">
+                  <div className="text-xs text-slate-500 space-y-0.5 pt-1">
+                    <div className="flex justify-between">
+                      <span>Base imponible</span>
+                      <span className="tabular-nums">{formatGs(baseImponible)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>IVA ({iva === "EXENTA" ? "Exento" : iva})</span>
+                      <span className="tabular-nums">{formatGs(ivaMonto)}</span>
+                    </div>
                     <div className="flex justify-between font-bold text-slate-800 pt-1 border-t border-slate-200">
                       <span>{esPresupuesto ? "Total presupuestado" : "Total a cobrar"} (IVA incl.)</span>
                       <span className="tabular-nums">{formatGs(totalLinea)}</span>
