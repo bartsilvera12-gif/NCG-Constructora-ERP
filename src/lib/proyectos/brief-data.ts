@@ -89,6 +89,7 @@ const SLUGS_OBRA_CONSTRUCTORA = new Set<string>([
 const OBRA_KEYWORDS = [
   "tejado", "cubierta", "impermeab", "retejad", "velux",
   "canalon", "bajante", "sandwich", "gl24", "obra",
+  "mantenimiento", "reparacion", "construc",
 ];
 
 /** Match contra cualquier código/nombre normalizado. */

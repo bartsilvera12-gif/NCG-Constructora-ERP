@@ -20,10 +20,12 @@ type Proyecto = {
   titulo?: string;
   estado_id?: string;
   proyecto_tipo?: { codigo?: string; nombre?: string } | null;
+  proyecto_estado?: { nombre?: string | null; color?: string | null } | null;
   estado?: { nombre?: string } | null;
   cliente?: { empresa?: string | null; nombre_contacto?: string | null } | null;
   fecha_prometida?: string | null;
   monto_vendido?: number | null;
+  presupuesto_origen_id?: string | null;
 };
 
 function clienteNombre(p: Proyecto): string {
@@ -78,8 +80,10 @@ export default function ControlObraSelectorClient() {
 
   const obras = useMemo(
     () =>
-      proyectos.filter((p) =>
-        isObraConstructora({ codigo: p.proyecto_tipo?.codigo, nombre: p.proyecto_tipo?.nombre })
+      proyectos.filter(
+        (p) =>
+          isObraConstructora({ codigo: p.proyecto_tipo?.codigo, nombre: p.proyecto_tipo?.nombre }) ||
+          Boolean(p.presupuesto_origen_id)
       ),
     [proyectos]
   );
@@ -153,7 +157,9 @@ export default function ControlObraSelectorClient() {
                     </div>
                   </td>
                   <td className="px-4 py-2.5 text-slate-700">{clienteNombre(o)}</td>
-                  <td className="px-4 py-2.5 text-slate-700">{o.estado?.nombre ?? "—"}</td>
+                  <td className="px-4 py-2.5 text-slate-700">
+                    {o.proyecto_estado?.nombre ?? o.estado?.nombre ?? "—"}
+                  </td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">
                     {fmtEur(o.monto_vendido ?? null)}
                   </td>
