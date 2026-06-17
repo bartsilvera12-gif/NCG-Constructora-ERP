@@ -15,8 +15,12 @@ type Estado = "pendiente" | "aprobado" | "rechazado" | "convertido" | null;
  *   El presupuesto debe nacer desde "Nuevo presupuesto de obra".
  * - Si tipo='presupuesto':
  *    - badge "Presupuesto de obra" + badge de estado.
- *    - pendiente → botones [Aprobar] [Rechazar].
- *    - aprobado  → botón [Convertir en obra].
+ *    - pendiente → [Aprobar y crear obra] [Rechazar]. Aprobar es un solo paso:
+ *      marca el presupuesto como aprobado, crea la obra automáticamente y
+ *      navega al detalle del proyecto. No queda estado intermedio "aprobado
+ *      sin obra".
+ *    - aprobado  → [Convertir en obra] (fallback para presupuestos legados
+ *      que quedaron en este estado antes de unificar el flujo).
  *    - convertido → link [Ver obra].
  *    - rechazado  → solo badge.
  */
@@ -83,6 +87,52 @@ export default function PresupuestoActions({
     }
   }
 
+  /**
+   * Aprobar = marcar aprobado + crear la obra inmediatamente, en un solo paso.
+   * El usuario nunca ve el estado "aprobado pero sin obra"; al aceptar el
+   * presupuesto ya queda como proyecto activo.
+   */
+  async function aprobarYCrearObra() {
+    if (!confirm("¿Aprobar este presupuesto? Se creará la obra inmediatamente y el presupuesto quedará vinculado.")) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      // 1) Marcar aprobado (requisito del endpoint convertir-obra).
+      const r1 = await fetchWithSupabaseSession(`/api/ventas/${id}/workflow`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado_presupuesto: "aprobado" }),
+      });
+      const j1 = (await r1.json().catch(() => ({}))) as { success?: boolean; error?: string };
+      if (!r1.ok || !j1.success) {
+        setErr(j1.error ?? "No se pudo aprobar");
+        return;
+      }
+      // 2) Crear la obra y vincular.
+      const r2 = await fetchWithSupabaseSession(`/api/ventas/${id}/convertir-obra`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const j2 = (await r2.json().catch(() => ({}))) as { success?: boolean; error?: string; data?: { proyecto?: { id: string; titulo: string } } };
+      if (!r2.ok || !j2.success) {
+        // Quedó aprobado pero no convertido. El botón "Convertir en obra"
+        // del estado 'aprobado' permite reintentar manualmente.
+        setErr(`Aprobado, pero falló crear la obra: ${j2.error ?? "error desconocido"}. Reintentá desde "Convertir en obra".`);
+        router.refresh();
+        return;
+      }
+      const proy = j2.data?.proyecto;
+      if (proy?.id) {
+        window.location.href = `/dashboard/proyectos/${proy.id}`;
+        return;
+      }
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-1">
       <div className="flex flex-wrap items-center gap-1">
@@ -106,14 +156,14 @@ export default function PresupuestoActions({
             <button
               type="button"
               disabled={busy}
-              onClick={() => patchWorkflow({ estado_presupuesto: "aprobado" })}
-              title="Aprobar este presupuesto"
+              onClick={aprobarYCrearObra}
+              title="Aprobar el presupuesto y crear la obra inmediatamente"
               className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 shadow-sm transition-colors hover:bg-emerald-100 hover:border-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
                 <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
               </svg>
-              Aprobar
+              Aprobar y crear obra
             </button>
             <button
               type="button"
