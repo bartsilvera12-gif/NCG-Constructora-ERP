@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import MontoInput from "@/components/ui/MontoInput";
 import SelectFromList from "@/components/inventario/SelectFromList";
 
@@ -239,6 +239,14 @@ export default function HerramientaCondicionForm({
 }
 
 function AvisoNoDuplicar() {
+  const [oculto, setOculto] = useState(false);
+  // Persistir "ocultar" por sesión así no estorba al usuario que ya lo leyó.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const k = "zentra:inventario:aviso-no-duplicar";
+    if (sessionStorage.getItem(k) === "1") setOculto(true);
+  }, []);
+  if (oculto) return null;
   return (
     <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-900">
       <p className="font-semibold mb-1">⚠ ¿La herramienta ya existe en la empresa?</p>
@@ -250,6 +258,20 @@ function AvisoNoDuplicar() {
         </Link>{" "}
         sobre la herramienta existente. Esto evita duplicados.
       </p>
+      <button
+        type="button"
+        onClick={() => {
+          setOculto(true);
+          try {
+            sessionStorage.setItem("zentra:inventario:aviso-no-duplicar", "1");
+          } catch {
+            // ignore
+          }
+        }}
+        className="mt-2 text-[11px] text-amber-700 hover:text-amber-900 underline"
+      >
+        Entendido, no mostrar de nuevo en esta sesión
+      </button>
     </div>
   );
 }
