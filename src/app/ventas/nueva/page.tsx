@@ -70,14 +70,21 @@ export default function NuevaVentaPage() {
   const searchParams = useSearchParams();
 
   /**
-   * Modo presupuesto: el form es el mismo, pero al guardar se envía
-   * tipo_documento='presupuesto', lo que en el servidor:
-   *  - No valida stock
-   *  - No descuenta stock
-   *  - No genera movimientos de inventario
-   *  - Crea la venta con estado_presupuesto='pendiente'
+   * Modos del form (param `?tipo=`):
+   *  - presupuesto: cotización; al guardar tipo_documento='presupuesto',
+   *    NO valida ni descuenta stock, NO genera movimientos, queda en
+   *    estado_presupuesto='pendiente'. Se accede desde el módulo /presupuestos.
+   *  - obra: VENTA REAL de obra; descuenta stock y genera ticket de cobro como
+   *    cualquier venta, y además crea un proyecto/obra vinculado automáticamente
+   *    al terminar (con el mismo brief: cliente, ubicación, partidas).
+   *  - (default): venta directa de material, sin obra asociada.
    */
-  const esPresupuesto = (searchParams?.get("tipo") ?? "") === "presupuesto";
+  const tipoParam = searchParams?.get("tipo") ?? "";
+  const esPresupuesto = tipoParam === "presupuesto";
+  const esObra = tipoParam === "obra";
+  // Cuando hay brief de obra cargado (presupuesto o venta-obra), reusamos las
+  // mismas secciones del form: datos de obra, partidas manuales, validaciones.
+  const conBriefObra = esPresupuesto || esObra;
 
   // ── Estado global ──────────────────────────────────────────────────────────
   const [items, setItems]           = useState<LineaVenta[]>([]);
@@ -111,7 +118,7 @@ export default function NuevaVentaPage() {
   // (un solo paso desde Ventas → Nueva venta → cargar productos).
   // En modo presupuesto no abrir automáticamente: el usuario debe completar
   // primero "Datos de la obra" antes de cargar partidas.
-  const [pickerOpen, setPickerOpen] = useState(!((searchParams?.get("tipo") ?? "") === "presupuesto"));
+  const [pickerOpen, setPickerOpen] = useState(!conBriefObra);
 
   // ── Popup de detalle de pago (transferencia / tarjeta) ───────────────────────
   const [pagoDetalleOpen, setPagoDetalleOpen] = useState(false);
@@ -175,14 +182,14 @@ export default function NuevaVentaPage() {
     if (modalidad === "delivery") return pedidoClienteTelefono.trim().length > 0 && pedidoDireccion.trim().length > 0;
     return true; // local + carry_out: todos opcionales
   })();
-  const presupuestoValido =
-    !esPresupuesto ||
+  const briefObraValido =
+    !conBriefObra ||
     (
       obraMeta.cliente_contacto.trim().length > 0 &&
       obraMeta.titulo_obra.trim().length > 0 &&
       obraMeta.descripcion.trim().length > 0
     );
-  const ventaValida   = items.length > 0 && pedidoValido && presupuestoValido;
+  const ventaValida   = items.length > 0 && pedidoValido && briefObraValido;
 
   // Vuelto (solo informativo, no se persiste)
   const montoRecibidoNum = parseImporte(montoRecibido);
@@ -281,8 +288,11 @@ export default function NuevaVentaPage() {
       esPresupuesto ? undefined : buildPedidoCocina(),
       esPresupuesto ? null : pagoDetalle,
       {
+        // tipo_documento='presupuesto' SOLO en modo presupuesto. Venta de obra
+        // es una venta real (descuenta stock, genera cobro) y solo guarda la
+        // meta para que /convertir-obra arme el proyecto a continuación.
         tipoDocumento: esPresupuesto ? "presupuesto" : "venta",
-        presupuestoMeta: esPresupuesto ? obraMetaToPayload(obraMeta) : null,
+        presupuestoMeta: conBriefObra ? obraMetaToPayload(obraMeta) : null,
       }
     );
     if (resultado.success) {
@@ -291,6 +301,32 @@ export default function NuevaVentaPage() {
         try {
           window.open(`/api/ventas/${resultado.venta.id}/ticket?mode=comandas&auto=1`, "_blank", "noopener");
         } catch {}
+      }
+      if (esObra) {
+        // Venta de obra: crear el proyecto vinculado automáticamente. Si falla,
+        // mantenemos la venta (ya está cobrada/contabilizada) y avisamos para
+        // que el usuario lo vincule a mano desde /ventas.
+        try {
+          const titulo = obraMeta.titulo_obra.trim() || undefined;
+          const resp = await fetch(`/api/ventas/${resultado.venta.id}/convertir-obra`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ titulo }),
+          });
+          if (!resp.ok) {
+            const j = await resp.json().catch(() => ({}));
+            return {
+              success: false as const,
+              error: `Venta registrada pero no se pudo crear la obra: ${j?.error ?? resp.statusText}. Vinculá la obra desde el listado.`,
+            };
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "error de red";
+          return {
+            success: false as const,
+            error: `Venta registrada pero no se pudo crear la obra: ${msg}. Vinculá la obra desde el listado.`,
+          };
+        }
       }
       router.push("/ventas");
     }
@@ -333,11 +369,17 @@ export default function NuevaVentaPage() {
     <div className="space-y-8">
 
       <PageHeader
-        eyebrow={esPresupuesto ? "NCG · Comercial" : "NCG · Operaciones"}
-        title={esPresupuesto ? "Nuevo presupuesto de obra" : "Nueva venta de material"}
-        description={esPresupuesto
-          ? "Cotización de obra para el cliente. No descuenta stock ni genera movimientos. Al aprobarse puede convertirse en obra."
-          : undefined}
+        eyebrow={conBriefObra ? "NCG · Comercial" : "NCG · Operaciones"}
+        title={
+          esPresupuesto ? "Nuevo presupuesto de obra"
+          : esObra ? "Nueva venta de obra"
+          : "Nueva venta de material"
+        }
+        description={
+          esPresupuesto ? "Cotización de obra para el cliente. No descuenta stock ni genera movimientos. Al aprobarse puede convertirse en obra."
+          : esObra ? "Venta de obra al cliente: descuenta stock, genera ticket de cobro y crea la obra automáticamente al guardar."
+          : undefined
+        }
         backHref="/ventas"
         backLabel="Ventas"
       />
@@ -349,7 +391,14 @@ export default function NuevaVentaPage() {
         </div>
       )}
 
-      {esPresupuesto && (
+      {esObra && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          <strong>Venta de obra:</strong> es una venta real — descuenta stock y genera ticket de cobro.
+          Al guardar se crea automáticamente la obra vinculada con estos datos.
+        </div>
+      )}
+
+      {conBriefObra && (
         <DatosObraSection meta={obraMeta} setMeta={setObraMeta} />
       )}
 
@@ -359,10 +408,12 @@ export default function NuevaVentaPage() {
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 sm:p-6">
           <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
-              {esPresupuesto ? "Partidas del presupuesto" : "Productos en esta venta"}
+              {esPresupuesto ? "Partidas del presupuesto"
+                : esObra ? "Partidas de la obra"
+                : "Productos en esta venta"}
             </p>
             <div className="flex items-center gap-2">
-              {esPresupuesto && (
+              {conBriefObra && (
                 <button
                   type="button"
                   onClick={() => setPartidaManualOpen(true)}
@@ -379,15 +430,15 @@ export default function NuevaVentaPage() {
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 shrink-0">
                   <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
                 </svg>
-                {esPresupuesto ? "Agregar material" : "Agregar producto"}
+                {conBriefObra ? "Agregar material" : "Agregar producto"}
               </button>
             </div>
           </div>
 
           {items.length === 0 ? (
             <div className="py-10 text-center text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-lg">
-              {esPresupuesto
-                ? "Todavía no agregaste partidas al presupuesto."
+              {esPresupuesto ? "Todavía no agregaste partidas al presupuesto."
+                : esObra ? "Todavía no agregaste partidas a la obra."
                 : "Todavía no agregaste productos a esta venta."}
             </div>
           ) : (
@@ -779,7 +830,6 @@ export default function NuevaVentaPage() {
         tipoCambio={tipoCambioNum}
         ivaDefault="21%"
         tasasIva={["EXENTA", "4%", "10%", "21%"]}
-        precioIncluyeIvaDefault={false}
         mode={esPresupuesto ? "presupuesto" : "venta"}
       />
 
@@ -795,7 +845,7 @@ export default function NuevaVentaPage() {
         onConfirmar={confirmarConDetalle}
       />
 
-      {esPresupuesto && partidaManualOpen && (
+      {conBriefObra && partidaManualOpen && (
         <PartidaManualModal
           onClose={() => setPartidaManualOpen(false)}
           onAgregar={(linea) => { setItems((p) => [...p, linea]); setPartidaManualOpen(false); }}
@@ -1187,7 +1237,9 @@ function PartidaManualModal({ onClose, onAgregar }: { onClose: () => void; onAgr
   const [unidad, setUnidad] = React.useState("UNIDAD");
   const [precio, setPrecio] = React.useState("");
   const [iva, setIva] = React.useState<TipoIvaVenta>("21%");
-  const [precioIncluyeIva, setPrecioIncluyeIva] = React.useState(false);
+  // Todos los precios incluyen IVA. El total NO suma IVA encima; se extrae la
+  // base imponible del bruto para mostrar el desglose.
+  const precioIncluyeIva = true;
 
   const cantNum = parseImporte(cantidad);
   const precioNum = parseImporte(precio);
@@ -1255,16 +1307,11 @@ function PartidaManualModal({ onClose, onAgregar }: { onClose: () => void; onAgr
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                {precioIncluyeIva ? "Precio unitario con IVA" : "Precio unitario sin IVA"} <span className="text-red-500">*</span>
+                Precio unitario con IVA <span className="text-red-500">*</span>
               </label>
               <input type="text" inputMode="decimal" value={precio}
                 onChange={(e) => setPrecio(e.target.value.replace(/[^\d.,-]/g, ""))}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-              <label className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer">
-                <input type="checkbox" checked={precioIncluyeIva}
-                  onChange={(e) => setPrecioIncluyeIva(e.target.checked)} />
-                El precio ingresado incluye IVA
-              </label>
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-slate-700 mb-1.5">IVA</label>

@@ -61,7 +61,12 @@ export interface CreateVentaPgParams {
    *  - NO se crea pedido cocina
    */
   tipoDocumento?: "venta" | "presupuesto";
-  /** Metadata específica del presupuesto de obra (titulo, ubicación, etc.). Solo si tipoDocumento='presupuesto'. */
+  /**
+   * Metadata de obra (titulo, ubicación, partidas manuales, etc.).
+   * Se persiste en `ventas.presupuesto_meta` tanto para presupuestos como para
+   * ventas de obra (tipo_documento='venta' con meta cargada), porque
+   * /api/ventas/[id]/convertir-obra usa esta meta para crear el proyecto.
+   */
   presupuestoMeta?: Record<string, unknown> | null;
 }
 
@@ -215,7 +220,7 @@ export async function createVentaTransaccionalPg(
       observaciones: params.observaciones,
       tipo_documento: esPresupuesto ? "presupuesto" : "venta",
       estado_presupuesto: esPresupuesto ? "pendiente" : null,
-      presupuesto_meta: esPresupuesto ? (params.presupuestoMeta ?? null) : null,
+      presupuesto_meta: params.presupuestoMeta ?? null,
       // CONTADO: se cobra al instante; CREDITO/presupuesto: queda pendiente.
       monto_cobrado: !esPresupuesto && params.tipoVenta === "CONTADO" ? calc.total : 0,
       fecha_cobro: !esPresupuesto && params.tipoVenta === "CONTADO" ? fechaIso : null,

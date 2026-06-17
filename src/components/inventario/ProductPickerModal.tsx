@@ -61,8 +61,6 @@ interface Props {
   ivaDefault?: TipoIvaVenta;
   /** Tasas disponibles a mostrar en el selector (orden importa). */
   tasasIva?: TipoIvaVenta[];
-  /** Default del toggle "Precio incluye IVA" (ES=false, PY=true). */
-  precioIncluyeIvaDefault?: boolean;
   /**
    * Modo de uso del picker:
    *  - "venta" (default): labels "Precio venta", "Total a cobrar",
@@ -98,7 +96,6 @@ export default function ProductPickerModal({
   open, onClose, onAgregar, excludeIds = [], moneda = "GS", tipoCambio = 1,
   ivaDefault = "21%",
   tasasIva = ["EXENTA", "4%", "10%", "21%"],
-  precioIncluyeIvaDefault = false,
   mode = "venta",
 }: Props) {
   const esPresupuesto = mode === "presupuesto";
@@ -114,7 +111,9 @@ export default function ProductPickerModal({
   const [cantidad, setCantidad] = useState("1");
   const [precio, setPrecio] = useState("");
   const [iva, setIva] = useState<TipoIvaVenta>(ivaDefault);
-  const [precioIncluyeIva, setPrecioIncluyeIva] = useState<boolean>(precioIncluyeIvaDefault);
+  // Todos los precios del catálogo incluyen IVA. El total NO suma IVA encima:
+  // se extrae la base imponible desde el bruto para mostrar el desglose.
+  const precioIncluyeIva = true;
   const [tipoPrecio, setTipoPrecio] = useState<"minorista" | "mayorista" | "costo">("minorista");
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -387,7 +386,7 @@ export default function ProductPickerModal({
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <DetailItem
                     label={esPresupuesto ? "Precio referencia" : "Precio venta"}
-                    value={`${formatGs(sel.precio_venta)} ${precioIncluyeIva ? "c/IVA" : "s/IVA"}`}
+                    value={`${formatGs(sel.precio_venta)} c/IVA`}
                     highlight
                   />
                   {sel.controla_stock !== false ? (
@@ -448,10 +447,7 @@ export default function ProductPickerModal({
                     </div>
                     <div>
                       <label className="block text-[11px] uppercase text-slate-400 mb-1">
-                        {esPresupuesto
-                          ? (precioIncluyeIva ? "Precio presupuestado c/IVA" : "Precio presupuestado s/IVA")
-                          : (precioIncluyeIva ? "Precio final con IVA" : "Precio sin IVA")
-                        } ({moneda === "USD" ? "USD" : "€"})
+                        {esPresupuesto ? "Precio presupuestado c/IVA" : "Precio final con IVA"} ({moneda === "USD" ? "USD" : "€"})
                       </label>
                       <input
                         type="text" inputMode="decimal" autoComplete="off"
@@ -478,31 +474,11 @@ export default function ProductPickerModal({
                         </button>
                       ))}
                     </div>
-                    <label className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={precioIncluyeIva}
-                        onChange={(e) => setPrecioIncluyeIva(e.target.checked)}
-                        className="h-3.5 w-3.5 rounded border-slate-300 text-[#0EA5E9] focus:ring-[#0EA5E9]"
-                      />
-                      El precio ingresado incluye IVA
-                    </label>
                   </div>
 
-                  <div className="text-xs text-slate-500 space-y-0.5 pt-1">
-                    <div className="flex justify-between">
-                      <span>{precioIncluyeIva ? "Base imponible" : "Subtotal sin IVA"}</span>
-                      <span className="tabular-nums">{formatGs(baseImponible)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>
-                        {precioIncluyeIva ? "IVA incluido" : "IVA repercutido"}
-                        {tasaIva > 0 ? ` ${Math.round(tasaIva * 100)}%` : ""}
-                      </span>
-                      <span className="tabular-nums">{ivaMonto > 0 ? formatGs(ivaMonto) : "—"}</span>
-                    </div>
+                  <div className="text-xs text-slate-500 pt-1">
                     <div className="flex justify-between font-bold text-slate-800 pt-1 border-t border-slate-200">
-                      <span>{esPresupuesto ? "Total presupuestado" : "Total a cobrar"}</span>
+                      <span>{esPresupuesto ? "Total presupuestado" : "Total a cobrar"} (IVA incl.)</span>
                       <span className="tabular-nums">{formatGs(totalLinea)}</span>
                     </div>
                   </div>

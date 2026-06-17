@@ -6,11 +6,18 @@ import { API_ERRORS } from "@/lib/api/errors";
 /**
  * POST /api/ventas/[id]/convertir-obra
  *
- * Convierte un presupuesto aprobado en una OBRA (proyectos).
- * - No descuenta stock, no genera movimientos, no registra compras/gastos.
- * - Copia los datos del presupuesto al brief de obra para que la obra "nazca armada".
+ * Crea una OBRA (proyectos) a partir de una venta.
+ * Acepta dos orígenes:
+ *  - Presupuesto APROBADO (tipo_documento='presupuesto', estado_presupuesto='aprobado'):
+ *    se marca como 'convertido'.
+ *  - Venta de obra REAL (tipo_documento='venta' con presupuesto_meta cargado):
+ *    la venta ya descontó stock y generó cobro; solo se vincula proyecto_id.
+ *
+ * En ambos casos:
+ * - No descuenta stock (la venta ya lo hizo, el presupuesto no necesita).
+ * - Copia los datos al brief de obra para que la obra "nazca armada".
  * - Vincula bidireccionalmente: ventas.proyecto_id ↔ proyectos.presupuesto_origen_id.
- * - Bloquea conversión duplicada.
+ * - Bloquea conversión duplicada (si ya tiene proyecto_id asignado).
  *
  * Body opcional: { titulo?: string }
  */
@@ -47,14 +54,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     };
     const meta = (v.presupuesto_meta ?? {}) as Record<string, unknown>;
 
-    if (v.tipo_documento !== "presupuesto") {
-      return NextResponse.json(errorResponse("Esta venta no es un presupuesto."), { status: 400 });
+    const esPresupuesto = v.tipo_documento === "presupuesto";
+    if (v.proyecto_id) {
+      return NextResponse.json(errorResponse(esPresupuesto
+        ? "Este presupuesto ya fue convertido en obra."
+        : "Esta venta ya tiene una obra asociada."), { status: 400 });
     }
-    if (v.estado_presupuesto === "convertido" || v.proyecto_id) {
-      return NextResponse.json(errorResponse("Este presupuesto ya fue convertido en obra."), { status: 400 });
-    }
-    if (v.estado_presupuesto !== "aprobado") {
-      return NextResponse.json(errorResponse("Solo presupuestos aprobados se convierten en obra."), { status: 400 });
+    if (esPresupuesto) {
+      if (v.estado_presupuesto === "convertido") {
+        return NextResponse.json(errorResponse("Este presupuesto ya fue convertido en obra."), { status: 400 });
+      }
+      if (v.estado_presupuesto !== "aprobado") {
+        return NextResponse.json(errorResponse("Solo presupuestos aprobados se convierten en obra."), { status: 400 });
+      }
+    } else if (!meta || Object.keys(meta).length === 0) {
+      // Venta real sin meta de obra: no hay nada para armar el proyecto.
+      return NextResponse.json(errorResponse("Esta venta no tiene datos de obra cargados."), { status: 400 });
     }
 
     // 2. Cargar partidas del presupuesto (estimadas).
@@ -193,8 +208,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const brief_data: Record<string, unknown> = {
       // Trazabilidad de origen
-      source: "presupuesto_obra",
-      origen: "presupuesto",
+      source: esPresupuesto ? "presupuesto_obra" : "venta_obra",
+      origen: esPresupuesto ? "presupuesto" : "venta",
       presupuesto_id: v.id,
       presupuesto_numero: v.numero_control,
       venta_id: v.id,
@@ -275,10 +290,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     const nuevoProyecto = nuevoProy as { id: string; titulo: string };
 
-    // 8. Vincular el presupuesto a la obra + marcar convertido.
+    // 8. Vincular el documento de origen a la obra. Para presupuestos se marca
+    //    además estado_presupuesto='convertido'; para ventas reales solo se
+    //    vincula proyecto_id (estado_presupuesto no aplica).
+    const updatePayload: Record<string, unknown> = { proyecto_id: nuevoProyecto.id };
+    if (esPresupuesto) updatePayload.estado_presupuesto = "convertido";
     const { error: e3 } = await ctx.supabase
       .from("ventas")
-      .update({ proyecto_id: nuevoProyecto.id, estado_presupuesto: "convertido" })
+      .update(updatePayload)
       .eq("id", id)
       .eq("empresa_id", empresaId);
     if (e3) {
