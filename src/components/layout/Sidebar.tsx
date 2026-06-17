@@ -281,6 +281,7 @@ export default function Sidebar() {
   const [strictAllowlist, setStrictAllowlist] = useState(false);
   const [favoritos, setFavoritos] = useState<string[]>([]);
   const [collapsed, setCollapsed] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({
     inventario: true,
     sorteos: true,
@@ -435,6 +436,36 @@ export default function Sidebar() {
 
   const toggleExpand = (menuKey: string) => {
     setExpandedItems((prev) => ({ ...prev, [menuKey]: !prev[menuKey] }));
+  };
+
+  /** Persiste qué secciones del menú están colapsadas (por label). Cargado al
+   *  montar; cada cambio se guarda. Si no hay valor previo, todas arrancan
+   *  expandidas. */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem("zentra:sidebar:collapsedSections");
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<string, boolean>;
+        if (parsed && typeof parsed === "object") setCollapsedSections(parsed);
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }, []);
+
+  const toggleSection = (label: string) => {
+    setCollapsedSections((prev) => {
+      const next = { ...prev, [label]: !prev[label] };
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("zentra:sidebar:collapsedSections", JSON.stringify(next));
+        }
+      } catch {
+        // ignore
+      }
+      return next;
+    });
   };
 
   const slugToId = (slug: string) => modulos.find((m) => m.slug === slug)?.id ?? slug;
@@ -605,29 +636,59 @@ export default function Sidebar() {
               .map((k) => mainItemsFiltered.find((m) => m.key === k))
               .filter((i): i is MenuItem => Boolean(i));
             if (itemsVisibles.length === 0) return null;
+            // Cuando el sidebar entero está colapsado mostramos solo los íconos
+            // sin headers; ahí no hay nada para colapsar por sección.
+            const isSectionCollapsed = !collapsed && (collapsedSections[section.label] ?? false);
+            const hasActiveItem = itemsVisibles.some((i) => isActive(i.slug, i.href));
             return (
               <div key={section.label} className="mb-3">
                 {!collapsed && (
-                  <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                    {section.label}
-                  </p>
-                )}
-                <div className="space-y-0.5">
-                  {itemsVisibles.map((item) => (
-                    <NavItem
-                      key={item.key}
-                      item={item}
-                      itemId={slugToId(item.slug)}
-                      isActive={isActive(item.slug, item.href)}
-                      isFavorito={favoritos.includes(slugToId(item.slug))}
-                      onToggleFavorito={handleToggleFavorito}
-                      hasAccess={hasAccess(item.slug)}
-                      collapsed={collapsed}
-                      expanded={expandedItems[item.key] ?? false}
-                      onToggleExpand={() => toggleExpand(item.key)}
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(section.label)}
+                    title={`${isSectionCollapsed ? "Expandir" : "Colapsar"} ${section.label}`}
+                    aria-expanded={!isSectionCollapsed}
+                    className="group mb-1.5 flex w-full items-center justify-between gap-2 rounded-md px-3 py-1 text-left transition-colors hover:bg-[color:var(--zentra-sidebar-hover)]"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full transition-colors ${
+                          hasActiveItem
+                            ? "bg-[color:var(--zentra-sidebar-accent)]"
+                            : "bg-slate-500/60"
+                        }`}
+                        aria-hidden
+                      />
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 group-hover:text-slate-200">
+                        {section.label}
+                      </span>
+                    </span>
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 shrink-0 text-slate-500 transition-transform group-hover:text-slate-300 ${
+                        isSectionCollapsed ? "-rotate-90" : ""
+                      }`}
+                      aria-hidden
                     />
-                  ))}
-                </div>
+                  </button>
+                )}
+                {!isSectionCollapsed && (
+                  <div className="space-y-0.5">
+                    {itemsVisibles.map((item) => (
+                      <NavItem
+                        key={item.key}
+                        item={item}
+                        itemId={slugToId(item.slug)}
+                        isActive={isActive(item.slug, item.href)}
+                        isFavorito={favoritos.includes(slugToId(item.slug))}
+                        onToggleFavorito={handleToggleFavorito}
+                        hasAccess={hasAccess(item.slug)}
+                        collapsed={collapsed}
+                        expanded={expandedItems[item.key] ?? false}
+                        onToggleExpand={() => toggleExpand(item.key)}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })
