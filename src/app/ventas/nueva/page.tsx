@@ -175,6 +175,10 @@ export default function NuevaVentaPage() {
   const totalSubtotal = items.reduce((s, i) => s + i.subtotal, 0);
   const totalIva      = items.reduce((s, i) => s + i.monto_iva, 0);
   const totalGeneral  = items.reduce((s, i) => s + i.total_linea, 0);
+  // IVA informativo: el precio ya incluye IVA, así que el "Total a cobrar"
+  // es total_linea. La fila IVA del resumen muestra precio × tasa para que
+  // el usuario vea cuánto IVA contiene el precio, sin sumarse al total.
+  const ivaInformativoTotal = items.reduce((s, i) => s + i.total_linea * tasaIvaVenta(i.tipo_iva), 0);
   const pedidoValido = (() => {
     // En verticales no-gastronomía no hay concepto de modalidad de pedido.
     if (!ES_GASTRONOMIA) return true;
@@ -524,34 +528,36 @@ export default function NuevaVentaPage() {
                 <div className="w-full md:w-80 space-y-3">
                   <div className="space-y-1.5">
                     {esPresupuesto && obraMeta.incluir_margen && (() => {
+                      // Margen sobre el bruto (precio c/IVA) para mantener la
+                      // misma proporción que el usuario ve en las partidas.
                       const baseMargen = obraMeta.tipo_margen === "porcentaje"
-                        ? (parseImporte(obraMeta.margen_pct) / 100) * totalSubtotal
+                        ? (parseImporte(obraMeta.margen_pct) / 100) * totalGeneral
                         : parseImporte(obraMeta.margen_monto);
-                      const margenSinIva = Math.max(0, baseMargen);
-                      const margenIva = margenSinIva * 0.21;
-                      const subtotalConMargen = totalSubtotal + margenSinIva;
-                      const ivaConMargen = totalIva + margenIva;
-                      const totalConMargen = totalGeneral + margenSinIva + margenIva;
+                      const margenBruto = Math.max(0, baseMargen);
+                      const totalConMargen = totalGeneral + margenBruto;
+                      // IVA informativo: 21% sobre el total con margen (el margen
+                      // se asume al mismo tipo estándar). No se suma al total.
+                      const ivaInfoConMargen = totalConMargen * 0.21;
                       return (
                         <>
                           <div className="flex justify-between text-xs text-gray-500">
-                            <span>Costo de partidas s/IVA</span>
-                            <span className="tabular-nums">{formatGs(totalSubtotal)}</span>
+                            <span>Costo de partidas</span>
+                            <span className="tabular-nums">{formatGs(totalGeneral)}</span>
                           </div>
                           <div className="flex justify-between text-xs text-emerald-700">
                             <span>Margen / beneficio {obraMeta.tipo_margen === "porcentaje" ? `(${obraMeta.margen_pct || 0}%)` : ""}</span>
-                            <span className="tabular-nums">{formatGs(margenSinIva)}</span>
+                            <span className="tabular-nums">{formatGs(margenBruto)}</span>
                           </div>
                           <div className="flex justify-between text-xs text-gray-500 pt-1 border-t border-gray-100">
-                            <span>Subtotal sin IVA</span>
-                            <span className="tabular-nums">{formatGs(subtotalConMargen)}</span>
+                            <span>Total</span>
+                            <span className="tabular-nums">{formatGs(totalConMargen)}</span>
                           </div>
                           <div className="flex justify-between text-xs text-gray-500">
-                            <span>IVA repercutido</span>
-                            <span className="tabular-nums">{ivaConMargen > 0 ? formatGs(ivaConMargen) : "—"}</span>
+                            <span>IVA (21%)</span>
+                            <span className="tabular-nums">{ivaInfoConMargen > 0 ? formatGs(ivaInfoConMargen) : "—"}</span>
                           </div>
                           <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-200">
-                            <span>{esPresupuesto ? "TOTAL presupuestado" : "TOTAL con IVA"}</span>
+                            <span>{esPresupuesto ? "Total presupuestado" : "Total a cobrar"}</span>
                             <span className="tabular-nums">{formatGs(totalConMargen)}</span>
                           </div>
                         </>
@@ -560,17 +566,17 @@ export default function NuevaVentaPage() {
                     {!(esPresupuesto && obraMeta.incluir_margen) && (
                       <>
                         <div className="flex justify-between text-xs text-gray-500">
-                          <span>Subtotal sin IVA</span>
-                          <span className="tabular-nums">{formatGs(totalSubtotal)}</span>
+                          <span>Total</span>
+                          <span className="tabular-nums">{formatGs(totalGeneral)}</span>
                         </div>
                         <div className="flex justify-between text-xs text-gray-500">
-                          <span>IVA repercutido</span>
+                          <span>IVA</span>
                           <span className="tabular-nums">
-                            {totalIva > 0 ? formatGs(totalIva) : "—"}
+                            {ivaInformativoTotal > 0 ? formatGs(ivaInformativoTotal) : "—"}
                           </span>
                         </div>
                         <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-200">
-                          <span>{esPresupuesto ? "TOTAL presupuestado" : "TOTAL con IVA"}</span>
+                          <span>{esPresupuesto ? "Total presupuestado" : "Total a cobrar"}</span>
                           <span className="tabular-nums">{formatGs(totalGeneral)}</span>
                         </div>
                       </>
@@ -1327,11 +1333,18 @@ function PartidaManualModal({ onClose, onAgregar }: { onClose: () => void; onAgr
               </div>
             </div>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600 space-y-0.5">
-            <div className="flex justify-between"><span>Subtotal sin IVA</span><span className="tabular-nums">{formatGs(subtotal)}</span></div>
-            <div className="flex justify-between"><span>IVA {iva === "EXENTA" ? "" : iva}</span><span className="tabular-nums">{ivaMonto > 0 ? formatGs(ivaMonto) : "—"}</span></div>
-            <div className="flex justify-between font-semibold text-slate-800 border-t border-slate-200 pt-1"><span>Total</span><span className="tabular-nums">{formatGs(totalLinea)}</span></div>
-          </div>
+          {(() => {
+            // El precio ya incluye IVA. La fila IVA es informativa (bruto × tasa)
+            // y no se suma al total; el total a cobrar es exactamente el bruto.
+            const ivaInfo = bruto * tasa;
+            return (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600 space-y-0.5">
+                <div className="flex justify-between"><span>Total</span><span className="tabular-nums">{formatGs(bruto)}</span></div>
+                <div className="flex justify-between"><span>IVA{iva === "EXENTA" ? "" : ` (${iva})`}</span><span className="tabular-nums">{ivaInfo > 0 ? formatGs(ivaInfo) : "—"}</span></div>
+                <div className="flex justify-between font-semibold text-slate-800 border-t border-slate-200 pt-1"><span>Total a cobrar</span><span className="tabular-nums">{formatGs(bruto)}</span></div>
+              </div>
+            );
+          })()}
           <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
             <button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">Cancelar</button>
             <button type="submit" disabled={!valida}

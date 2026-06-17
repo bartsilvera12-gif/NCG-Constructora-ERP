@@ -124,9 +124,12 @@ export default function PresupuestoObra({ brief }: { brief: Record<string, unkno
       {totales && (
         <div className="flex justify-end">
           <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-4 space-y-1.5 text-sm">
+            {/* El precio del catálogo ya incluye IVA. La fila IVA es informativa
+                (componente fiscal que contiene el precio) y no se suma al
+                total: Total y Total presupuestado son el mismo bruto. */}
             <div className="flex justify-between text-slate-600">
-              <span>Subtotal sin IVA</span>
-              <span className="tabular-nums">{fmtEur(totales.subtotal)}</span>
+              <span>Total</span>
+              <span className="tabular-nums">{fmtEur(totales.total)}</span>
             </div>
             <div className="flex justify-between text-slate-600">
               <span>IVA</span>
