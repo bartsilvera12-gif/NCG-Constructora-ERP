@@ -199,11 +199,11 @@ export default function VentasPage() {
       <PageHeader
         eyebrow="NCG · Operaciones"
         title="Ventas"
-        description="Ventas directas de materiales y presupuestos de obra"
+        description="Ventas directas de materiales y ventas de obra (presupuestos)"
         actions={
           <div className="flex flex-wrap gap-2">
             <Button href="/ventas/nueva?tipo=presupuesto" size="sm" variant="secondary">
-              <span aria-hidden>+</span> Nuevo presupuesto de obra
+              <span aria-hidden>+</span> Nueva venta de obra
             </Button>
             <Button href="/ventas/nueva" size="sm">
               <span aria-hidden>+</span> Nueva venta de material

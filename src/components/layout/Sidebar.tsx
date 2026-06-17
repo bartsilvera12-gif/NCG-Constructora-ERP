@@ -95,6 +95,7 @@ const MENU_STRUCTURE: MenuItem[] = [
   { key: "ventas",           slug: "ventas",        label: "Ventas",           href: "/ventas",                 icon: ShoppingCart },
   { key: "comisiones",       slug: "comisiones",    label: "Comisiones",       href: "/comisiones",             icon: Percent },
 
+  { key: "presupuestos",     slug: "ventas",        label: "Presupuestos",     href: "/presupuestos",           icon: FileText },
   { key: "proyectos",        slug: "proyectos",     label: "Proyectos",        href: "/dashboard/proyectos",    icon: FolderKanban },
 
   { key: "compras",          slug: "compras",       label: "Compras",          href: "/compras",                icon: Package },
@@ -119,7 +120,7 @@ const MENU_STRUCTURE: MenuItem[] = [
 const MENU_SECTIONS: { label: string; keys: string[] }[] = [
   { label: "General",    keys: ["dashboard"] },
   { label: "Comercial",  keys: ["clientes", "ventas", "comisiones"] },
-  { label: "Obras",      keys: ["proyectos"] },
+  { label: "Obras",      keys: ["presupuestos", "proyectos"] },
   { label: "Compras",    keys: ["compras", "proveedores"] },
   { label: "Inventario", keys: ["productos", "movimientos"] },
   { label: "Finanzas",   keys: ["pagos", "gastos", "reportes", "panel_financiero"] },
