@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import MontoInput from "@/components/ui/MontoInput";
 import PageHeader from "@/components/ui/PageHeader";
 import { saveCompraMulti, uploadFacturaCompra } from "@/lib/compras/storage";
@@ -112,6 +112,13 @@ type ProyectoLite = { id: string; titulo: string };
 
 export default function NuevaCompraPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const proyectoIdParam = useMemo(() => searchParams?.get("proyecto_id") ?? "", [searchParams]);
+  const returnTo = useMemo(() => {
+    const r = searchParams?.get("return_to") ?? "";
+    return r.startsWith("/") ? r : "";
+  }, [searchParams]);
+  const successHref = returnTo || "/compras";
 
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -131,7 +138,7 @@ export default function NuevaCompraPage() {
     plazo_dias: "",
     moneda: "PYG" as Moneda, // PYG => se muestra como € (NCG)
     tipo_cambio: "",
-    proyecto_id: "",
+    proyecto_id: proyectoIdParam,
     almacen_destino: "deposito" as AlmacenDestino,
   });
 
@@ -341,7 +348,7 @@ export default function NuevaCompraPage() {
           alert(`La compra se guardó, pero la factura no pudo subirse: ${up.error}\n\nPodés volver a cargarla más tarde.`);
         }
       }
-      router.push("/compras");
+      router.push(successHref);
     } finally {
       setSubmitting(false);
     }
@@ -425,8 +432,8 @@ export default function NuevaCompraPage() {
         eyebrow="NCG · Adquisiciones"
         title="Nueva compra de materiales"
         description="Cargá uno o varios materiales del mismo proveedor. Al guardar impacta el inventario y, si lo imputás, la rentabilidad de la obra."
-        backHref="/compras"
-        backLabel="Compras de materiales"
+        backHref={returnTo || "/compras"}
+        backLabel={returnTo ? "Volver" : "Compras de materiales"}
       />
 
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 max-w-3xl">
@@ -909,7 +916,7 @@ export default function NuevaCompraPage() {
               className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-5 py-3 rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed active:scale-95">
               {submitting ? "Guardando..." : "Guardar compra"}
             </button>
-            <button type="button" onClick={() => router.push("/compras")}
+            <button type="button" onClick={() => router.push(successHref)}
               className="border border-slate-200 px-5 py-3 rounded-lg text-sm hover:bg-slate-50 transition-colors">
               Cancelar
             </button>

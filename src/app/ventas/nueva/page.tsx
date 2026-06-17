@@ -297,6 +297,7 @@ export default function NuevaVentaPage() {
         // meta para que /convertir-obra arme el proyecto a continuación.
         tipoDocumento: esPresupuesto ? "presupuesto" : "venta",
         presupuestoMeta: conBriefObra ? obraMetaToPayload(obraMeta) : null,
+        clienteId: conBriefObra && obraMeta.cliente_id ? obraMeta.cliente_id : null,
       }
     );
     if (resultado.success) {
@@ -867,6 +868,9 @@ export default function NuevaVentaPage() {
 
 type ObraMeta = {
   // Cliente / contacto
+  // Si cliente_id está seteado, es un cliente del catálogo. Si no, es un texto
+  // libre (caso de uso: contacto rápido que aún no está dado de alta).
+  cliente_id: string;
   cliente_contacto: string;
   cliente_telefono: string;
   cliente_email: string;
@@ -901,6 +905,7 @@ type ObraMeta = {
 };
 
 const INITIAL_OBRA_META: ObraMeta = {
+  cliente_id: "",
   cliente_contacto: "",
   cliente_telefono: "",
   cliente_email: "",
@@ -950,6 +955,7 @@ function obraMetaToPayload(m: ObraMeta): Record<string, unknown> {
   const str = (s: string) => (s.trim() ? s.trim() : null);
   const numn = (s: string) => (s.trim() !== "" ? Number(s) || null : null);
   return {
+    cliente_id: str(m.cliente_id),
     cliente_contacto: str(m.cliente_contacto),
     cliente_telefono: str(m.cliente_telefono),
     cliente_email: str(m.cliente_email),

@@ -13,9 +13,12 @@ const fInput =
 type Props = {
   gasto?: Gasto | null;
   onSuccess?: () => void;
+  /** Si viene desde una obra, fija el proyecto y vuelve a returnTo al guardar. */
+  proyectoId?: string | null;
+  returnTo?: string | null;
 };
 
-export default function GastoForm({ gasto, onSuccess }: Props) {
+export default function GastoForm({ gasto, onSuccess, proyectoId, returnTo }: Props) {
   const router = useRouter();
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +31,7 @@ export default function GastoForm({ gasto, onSuccess }: Props) {
     recurrente: gasto?.recurrente ?? false,
     frecuencia: gasto?.frecuencia ?? "",
     fecha: gasto?.fecha ?? new Date().toISOString().slice(0, 10),
+    proyecto_id: proyectoId ?? null,
   });
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
@@ -57,7 +61,7 @@ export default function GastoForm({ gasto, onSuccess }: Props) {
         await createGasto(form);
       }
       onSuccess?.();
-      router.push("/gastos");
+      router.push(returnTo && returnTo.startsWith("/") ? returnTo : "/gastos");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error al guardar");
     } finally {
@@ -175,7 +179,7 @@ export default function GastoForm({ gasto, onSuccess }: Props) {
         </button>
         <button
           type="button"
-          onClick={() => router.push("/gastos")}
+          onClick={() => router.push(returnTo && returnTo.startsWith("/") ? returnTo : "/gastos")}
           className="border border-slate-200 text-sm px-6 py-2.5 rounded-lg hover:bg-slate-50 transition-colors"
         >
           Cancelar

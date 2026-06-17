@@ -24,6 +24,7 @@ export type GastoInput = {
   recurrente: boolean;
   frecuencia?: string;
   fecha: string;
+  proyecto_id?: string | null;
 };
 
 function mapRow(r: Record<string, unknown>): Gasto {
@@ -98,6 +99,7 @@ export async function createGasto(input: GastoInput): Promise<Gasto> {
       recurrente: input.recurrente,
       frecuencia: input.frecuencia?.trim() || null,
       fecha: input.fecha,
+      proyecto_id: input.proyecto_id ?? null,
       // Gastos se asumen liquidados al cargarlos (mismo criterio que el backfill).
       monto_pagado: input.monto,
       fecha_pago: input.fecha,

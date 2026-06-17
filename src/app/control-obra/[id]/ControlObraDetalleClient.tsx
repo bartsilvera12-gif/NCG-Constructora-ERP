@@ -216,7 +216,7 @@ function ComprasTab({ projectId }: { projectId: string }) {
     <div className="space-y-3">
       <div className="flex justify-end">
         <Link
-          href={`/compras/nueva?proyecto_id=${encodeURIComponent(projectId)}`}
+          href={`/compras/nueva?proyecto_id=${encodeURIComponent(projectId)}&return_to=${encodeURIComponent(`/control-obra/${projectId}#compras`)}`}
           className="inline-flex items-center rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#3F8E91]"
         >
           + Nueva compra para esta obra
@@ -226,7 +226,7 @@ function ComprasTab({ projectId }: { projectId: string }) {
       {rows.length === 0 ? (
         <VacioControl
           tipo="compras"
-          accion={`/compras/nueva?proyecto_id=${encodeURIComponent(projectId)}`}
+          accion={`/compras/nueva?proyecto_id=${encodeURIComponent(projectId)}&return_to=${encodeURIComponent(`/control-obra/${projectId}#compras`)}`}
           accionLabel="+ Nueva compra"
         />
       ) : (
@@ -313,7 +313,7 @@ function GastosTab({ projectId }: { projectId: string }) {
     <div className="space-y-3">
       <div className="flex justify-end">
         <Link
-          href={`/gastos/nuevo?proyecto_id=${encodeURIComponent(projectId)}`}
+          href={`/gastos/nuevo?proyecto_id=${encodeURIComponent(projectId)}&return_to=${encodeURIComponent(`/control-obra/${projectId}#gastos`)}`}
           className="inline-flex items-center rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#3F8E91]"
         >
           + Nuevo gasto para esta obra
@@ -323,7 +323,7 @@ function GastosTab({ projectId }: { projectId: string }) {
       {rows.length === 0 ? (
         <VacioControl
           tipo="gastos"
-          accion={`/gastos/nuevo?proyecto_id=${encodeURIComponent(projectId)}`}
+          accion={`/gastos/nuevo?proyecto_id=${encodeURIComponent(projectId)}&return_to=${encodeURIComponent(`/control-obra/${projectId}#gastos`)}`}
           accionLabel="+ Nuevo gasto"
         />
       ) : (
