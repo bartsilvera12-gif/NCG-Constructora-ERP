@@ -407,7 +407,7 @@ export default function NuevaVentaPage() {
       )}
 
       {conBriefObra && (
-        <DatosObraSection meta={obraMeta} setMeta={setObraMeta} />
+        <DatosObraSection meta={obraMeta} setMeta={setObraMeta} esPresupuesto={esPresupuesto} />
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6 max-w-7xl">
@@ -876,6 +876,10 @@ type ObraMeta = {
   cliente_telefono: string;
   cliente_email: string;
   cliente_zona: string;
+  /** Razón social — usada al crear el cliente al aprobar el presupuesto. */
+  cliente_empresa: string;
+  /** Dirección — usada al crear el cliente al aprobar el presupuesto. */
+  cliente_direccion: string;
   // Obra
   titulo_obra: string;
   tipo_obra_id: string;
@@ -911,6 +915,8 @@ const INITIAL_OBRA_META: ObraMeta = {
   cliente_telefono: "",
   cliente_email: "",
   cliente_zona: "",
+  cliente_empresa: "",
+  cliente_direccion: "",
   titulo_obra: "",
   tipo_obra_id: "",
   ubicacion: "",
@@ -961,6 +967,8 @@ function obraMetaToPayload(m: ObraMeta): Record<string, unknown> {
     cliente_telefono: str(m.cliente_telefono),
     cliente_email: str(m.cliente_email),
     cliente_zona: str(m.cliente_zona),
+    cliente_empresa: str(m.cliente_empresa),
+    cliente_direccion: str(m.cliente_direccion),
     titulo_obra: str(m.titulo_obra),
     tipo_obra_id: m.tipo_obra_id || null,
     ubicacion: str(m.ubicacion),
@@ -1012,7 +1020,15 @@ function PresupSection({
   );
 }
 
-function DatosObraSection({ meta, setMeta }: { meta: ObraMeta; setMeta: React.Dispatch<React.SetStateAction<ObraMeta>> }) {
+function DatosObraSection({
+  meta,
+  setMeta,
+  esPresupuesto,
+}: {
+  meta: ObraMeta;
+  setMeta: React.Dispatch<React.SetStateAction<ObraMeta>>;
+  esPresupuesto: boolean;
+}) {
   const [tipos, setTipos] = React.useState<{ id: string; nombre: string }[]>([]);
   React.useEffect(() => {
     fetch("/api/proyectos/tipos", { credentials: "include", cache: "no-store" })
@@ -1036,6 +1052,9 @@ function DatosObraSection({ meta, setMeta }: { meta: ObraMeta; setMeta: React.Di
               value={meta.cliente_contacto}
               selectedId={meta.cliente_id}
               required
+              // En presupuestos no creamos el cliente hasta que se apruebe: el
+              // alta real la hace /api/ventas/[id]/convertir-obra al convertir.
+              draftMode={esPresupuesto}
               placeholder="Buscar cliente por nombre, email, teléfono…"
               onSelect={(c) => {
                 setMeta((p) => ({
@@ -1047,6 +1066,8 @@ function DatosObraSection({ meta, setMeta }: { meta: ObraMeta; setMeta: React.Di
                   cliente_telefono: p.cliente_telefono.trim() ? p.cliente_telefono : c.telefono,
                   cliente_email: p.cliente_email.trim() ? p.cliente_email : c.email,
                   cliente_zona: p.cliente_zona.trim() ? p.cliente_zona : c.ciudad,
+                  cliente_empresa: p.cliente_empresa.trim() ? p.cliente_empresa : (c.empresa ?? ""),
+                  cliente_direccion: p.cliente_direccion.trim() ? p.cliente_direccion : (c.direccion ?? ""),
                 }));
               }}
               onClear={() => setField("cliente_id", "")}

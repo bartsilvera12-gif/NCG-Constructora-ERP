@@ -31,6 +31,10 @@ export interface ClienteSeleccionado {
   telefono: string;
   email: string;
   ciudad: string;
+  /** Razón social (solo si el cliente es empresa). */
+  empresa?: string;
+  /** Dirección completa (opcional, sobre todo para draft). */
+  direccion?: string;
 }
 
 interface Props {
@@ -46,6 +50,13 @@ interface Props {
   onFreeText?: (texto: string) => void;
   placeholder?: string;
   required?: boolean;
+  /**
+   * Modo "draft": el botón "+ Crear cliente" NO persiste el cliente en el
+   * catálogo. Solo emite los datos cargados como si el cliente estuviera
+   * seleccionado (id=""), para que el padre los guarde en el documento. El
+   * cliente real se crea recién cuando el documento se aprueba/convierte.
+   */
+  draftMode?: boolean;
 }
 
 function nombreDe(c: ClienteRow): string {
@@ -56,13 +67,17 @@ function nombreDe(c: ClienteRow): string {
 }
 
 export default function ClientePicker({
-  value, selectedId, onSelect, onClear, onFreeText, placeholder, required,
+  value, selectedId, onSelect, onClear, onFreeText, placeholder, required, draftMode,
 }: Props) {
   const [clientes, setClientes] = useState<ClienteRow[]>([]);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [busqueda, setBusqueda] = useState(value);
   const [creando, setCreando] = useState(false);
+  /** True cuando el "+ Crear cliente" se uso en draftMode y el padre todavia no
+   *  tiene un cliente real. Se resetea cuando el usuario tipea, limpia o
+   *  selecciona uno del catalogo. */
+  const [isDraft, setIsDraft] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -117,14 +132,17 @@ export default function ClientePicker({
     [matches, q]
   );
 
-  function elegir(c: ClienteRow) {
+  function elegir(c: ClienteRow, draft = false) {
     onSelect({
       id: c.id,
       nombre: nombreDe(c),
       telefono: (c.telefono ?? "").trim(),
       email: (c.email ?? "").trim(),
       ciudad: (c.ciudad ?? "").trim(),
+      empresa: (c.empresa ?? "").trim(),
+      direccion: (c.direccion ?? "").trim(),
     });
+    setIsDraft(draft);
     setBusqueda(nombreDe(c));
     setOpen(false);
     inputRef.current?.blur();
@@ -141,6 +159,7 @@ export default function ClientePicker({
     // Si había un cliente seleccionado y el usuario empezó a tipear, lo
     // desligamos para que el cliente_id no quede obsoleto.
     if (selectedId) onClear?.();
+    if (isDraft) setIsDraft(false);
     onFreeText?.(v);
   }
 
@@ -157,10 +176,10 @@ export default function ClientePicker({
           autoComplete="off"
           className="w-full rounded-lg border border-slate-200 px-3 py-2 pr-10 text-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#4FAEB2]/30"
         />
-        {selectedId && (
+        {(selectedId || isDraft) && (
           <button
             type="button"
-            onClick={() => { onClear?.(); setBusqueda(""); inputRef.current?.focus(); }}
+            onClick={() => { onClear?.(); setIsDraft(false); setBusqueda(""); inputRef.current?.focus(); }}
             title="Quitar cliente seleccionado"
             className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 p-1"
           >
@@ -171,12 +190,20 @@ export default function ClientePicker({
         )}
       </div>
 
-      {selectedId && (
+      {selectedId && !isDraft && (
         <p className="mt-1 text-[11px] text-emerald-700 inline-flex items-center gap-1">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3 w-3">
             <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
           </svg>
           Cliente del catálogo vinculado
+        </p>
+      )}
+      {isDraft && (
+        <p className="mt-1 text-[11px] text-amber-700 inline-flex items-center gap-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3 w-3">
+            <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
+          </svg>
+          Cliente nuevo — se crea al aprobar el presupuesto
         </p>
       )}
       {loadErr && (
@@ -222,11 +249,16 @@ export default function ClientePicker({
       {creando && (
         <NuevoClienteModal
           nombreInicial={busqueda.trim()}
+          draftMode={draftMode === true}
           onClose={() => setCreando(false)}
-          onCreado={(c) => {
-            setClientes((prev) => [c, ...prev]);
+          onCreado={(c, isDraftCreated) => {
+            // En draftMode no sumamos a la lista del catalogo: el cliente aun
+            // no existe en BD. Si se persistio (modo normal), si lo agregamos.
+            if (!isDraftCreated) {
+              setClientes((prev) => [c, ...prev]);
+            }
             setCreando(false);
-            elegir(c);
+            elegir(c, isDraftCreated);
           }}
         />
       )}
@@ -235,11 +267,12 @@ export default function ClientePicker({
 }
 
 function NuevoClienteModal({
-  nombreInicial, onClose, onCreado,
+  nombreInicial, draftMode, onClose, onCreado,
 }: {
   nombreInicial: string;
+  draftMode: boolean;
   onClose: () => void;
-  onCreado: (c: ClienteRow) => void;
+  onCreado: (c: ClienteRow, isDraft: boolean) => void;
 }) {
   const [nombre, setNombre] = useState(nombreInicial);
   const [empresa, setEmpresa] = useState("");
@@ -261,6 +294,22 @@ function NuevoClienteModal({
     if (!nombre.trim()) { setErr("El nombre es obligatorio"); return; }
     setBusy(true); setErr(null);
     try {
+      // En draftMode no creamos el cliente en BD: emitimos los datos cargados
+      // como ClienteRow "borrador" (id="") para que el padre los guarde en el
+      // documento. El alta real se hace cuando el presupuesto se aprueba.
+      if (draftMode) {
+        const draft: ClienteRow = {
+          id: "",
+          empresa: empresa.trim() || null,
+          nombre_contacto: nombre.trim(),
+          telefono: telefono.trim() || null,
+          email: email.trim() || null,
+          direccion: direccion.trim() || null,
+          ciudad: ciudad.trim() || null,
+        };
+        onCreado(draft, true);
+        return;
+      }
       const r = await fetchWithSupabaseSession("/api/clientes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -279,7 +328,7 @@ function NuevoClienteModal({
         setErr(j.error ?? `No se pudo crear el cliente (${r.status})`);
         return;
       }
-      onCreado(j.data);
+      onCreado(j.data, false);
     } finally {
       setBusy(false);
     }
@@ -299,7 +348,11 @@ function NuevoClienteModal({
       >
         <div className="px-5 pt-5 pb-2">
           <h3 className="text-base font-semibold text-slate-900">Nuevo cliente</h3>
-          <p className="mt-1 text-xs text-slate-500">Datos mínimos para vincularlo al presupuesto. Podés completar el resto luego desde Clientes.</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {draftMode
+              ? "Datos mínimos del contacto. El cliente se crea recién cuando se aprueba el presupuesto, así no quedan registros sueltos si se rechaza."
+              : "Datos mínimos para vincularlo al documento. Podés completar el resto luego desde Clientes."}
+          </p>
         </div>
         <div className="px-5 py-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="sm:col-span-2">
@@ -354,7 +407,7 @@ function NuevoClienteModal({
                 <path d="M17 10a7 7 0 0 1-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
               </svg>
             )}
-            {busy ? "Creando…" : "Crear cliente"}
+            {busy ? "Guardando…" : draftMode ? "Guardar contacto" : "Crear cliente"}
           </button>
         </div>
       </form>

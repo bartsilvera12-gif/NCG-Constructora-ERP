@@ -265,9 +265,53 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // 7. Resolver cliente y responsable comercial.
     // cliente_id: prioriza venta.cliente_id; si no, meta.cliente_id (cliente
-    // elegido en el formulario del presupuesto).
+    // elegido en el formulario del presupuesto). Si tampoco hay y el
+    // presupuesto trae un contacto "draft" (creado inline pero NO persistido
+    // hasta la aprobación), creamos acá el cliente.
     const metaClienteId = typeof meta.cliente_id === "string" ? meta.cliente_id.trim() : "";
-    const clienteIdFinal = v.cliente_id || (metaClienteId || null);
+    let clienteIdFinal: string | null = v.cliente_id || (metaClienteId || null);
+
+    if (!clienteIdFinal) {
+      const draftNombre =
+        typeof meta.cliente_contacto === "string" ? meta.cliente_contacto.trim() : "";
+      if (draftNombre) {
+        const draftEmpresa =
+          typeof meta.cliente_empresa === "string" ? meta.cliente_empresa.trim() : "";
+        const draftTel =
+          typeof meta.cliente_telefono === "string" ? meta.cliente_telefono.trim() : "";
+        const draftEmail =
+          typeof meta.cliente_email === "string" ? meta.cliente_email.trim() : "";
+        const draftDireccion =
+          typeof meta.cliente_direccion === "string" ? meta.cliente_direccion.trim() : "";
+        const draftCiudad =
+          typeof meta.cliente_zona === "string" ? meta.cliente_zona.trim() : "";
+
+        const { data: nuevoCli, error: eCli } = await ctx.supabase
+          .from("clientes")
+          .insert({
+            empresa_id: empresaId,
+            tipo_cliente: draftEmpresa ? "empresa" : "persona",
+            nombre_contacto: draftNombre,
+            empresa: draftEmpresa || null,
+            telefono: draftTel || null,
+            email: draftEmail || null,
+            direccion: draftDireccion || null,
+            ciudad: draftCiudad || null,
+            pais: "ESPAÑA",
+            moneda_preferida: "EUR",
+            estado: "activo",
+          })
+          .select("id")
+          .single();
+        if (eCli || !nuevoCli) {
+          return NextResponse.json(
+            errorResponse(eCli?.message ?? "No se pudo crear el cliente al aprobar el presupuesto"),
+            { status: 400 }
+          );
+        }
+        clienteIdFinal = (nuevoCli as { id: string }).id;
+      }
+    }
 
     // responsable_comercial_id: si el cliente tiene vendedor_usuario_id, lo
     // tomamos como comercial responsable de la obra. Así la card del kanban
@@ -317,6 +361,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     //    vincula proyecto_id (estado_presupuesto no aplica).
     const updatePayload: Record<string, unknown> = { proyecto_id: nuevoProyecto.id };
     if (esPresupuesto) updatePayload.estado_presupuesto = "convertido";
+    // Si recién creamos el cliente desde el draft, lo dejamos también en la
+    // venta para que la traza presupuesto → cliente quede consistente.
+    if (!v.cliente_id && clienteIdFinal) updatePayload.cliente_id = clienteIdFinal;
     const { error: e3 } = await ctx.supabase
       .from("ventas")
       .update(updatePayload)
