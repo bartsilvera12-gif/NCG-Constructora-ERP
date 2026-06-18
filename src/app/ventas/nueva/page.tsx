@@ -1279,77 +1279,9 @@ function DatosObraSection({
         </div>
       </PresupSection>
 
-      {/* C. Tipo de servicio */}
-      <PresupSection titulo="Tipo de servicio" defaultOpen={false}>
-        <div className="flex flex-wrap gap-2">
-          {TIPOS_SERVICIO_NCG.map((t) => {
-            const sel = meta.tipo_servicio === t.value;
-            return (
-              <button
-                key={t.value}
-                type="button"
-                onClick={() => setField("tipo_servicio", sel ? "" : t.value)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                  sel
-                    ? "border-[#0EA5E9] bg-[#0EA5E9]/10 text-[#0284C7]"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                }`}
-              >
-                {sel ? "✓ " : ""}{t.label}
-              </button>
-            );
-          })}
-        </div>
-      </PresupSection>
-
-      {/* D. Margen / beneficio (opcional) */}
-      <PresupSection titulo="Margen / beneficio" defaultOpen={false}>
-        <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
-          <input type="checkbox" checked={meta.incluir_margen}
-            onChange={(e) => setField("incluir_margen", e.target.checked)}
-            className="h-4 w-4 rounded border-slate-300" />
-          Incluir margen / beneficio en el presupuesto
-        </label>
-        {meta.incluir_margen && (
-          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label className={PRESUP_LABEL}>Tipo de margen</label>
-              <select value={meta.tipo_margen}
-                onChange={(e) => setField("tipo_margen", e.target.value === "monto" ? "monto" : "porcentaje")}
-                className={PRESUP_INPUT}>
-                <option value="porcentaje">Porcentaje (%)</option>
-                <option value="monto">Monto fijo (€)</option>
-              </select>
-            </div>
-            {meta.tipo_margen === "porcentaje" ? (
-              <div>
-                <label className={PRESUP_LABEL}>Margen %</label>
-                <input type="text" inputMode="decimal" value={meta.margen_pct}
-                  onChange={(e) => setField("margen_pct", e.target.value.replace(/[^\d.,-]/g, ""))}
-                  placeholder="Ej. 20" className={PRESUP_INPUT} />
-              </div>
-            ) : (
-              <div>
-                <label className={PRESUP_LABEL}>Margen €</label>
-                <input type="text" inputMode="decimal" value={meta.margen_monto}
-                  onChange={(e) => setField("margen_monto", e.target.value.replace(/[^\d.,-]/g, ""))}
-                  placeholder="Ej. 500" className={PRESUP_INPUT} />
-              </div>
-            )}
-            <div className="md:col-span-2">
-              <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                <input type="checkbox" checked={meta.mostrar_margen_cliente}
-                  onChange={(e) => setField("mostrar_margen_cliente", e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300" />
-                Mostrar margen al cliente (línea visible en el presupuesto)
-              </label>
-              <p className="mt-1 ml-6 text-[11px] text-slate-500">
-                Si está apagado, el margen se suma al subtotal pero no aparece como partida separada en el PDF.
-              </p>
-            </div>
-          </div>
-        )}
-      </PresupSection>
+      {/* Secciones "Tipo de servicio" y "Margen / beneficio" se ocultaron del
+          presupuesto a pedido del usuario. La lógica de margen permanece en el
+          state pero queda inerte porque incluir_margen arranca false. */}
 
       {/* E. Garantía y condiciones */}
       <PresupSection titulo="Garantía y condiciones" defaultOpen={false}>
