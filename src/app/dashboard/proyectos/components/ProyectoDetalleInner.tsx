@@ -45,6 +45,7 @@ export type DetalleResp = {
 };
 
 type UsuarioActivo = { id: string; nombre?: string | null; email?: string | null };
+type EmpleadoActivo = { id: string; nombre: string; cargo?: string | null };
 
 const TAB_IDS = ["resumen", "datos", "presupuesto", "materiales", "personal", "rentabilidad", "tareas", "comentarios", "archivos", "historial"] as const;
 export type TabId = (typeof TAB_IDS)[number];
@@ -126,6 +127,7 @@ export default function ProyectoDetalleInner({
   const [data, setData] = useState<DetalleResp | null>(null);
   const [estados, setEstados] = useState<{ id: string; nombre: string }[]>([]);
   const [usuarios, setUsuarios] = useState<UsuarioActivo[]>([]);
+  const [empleados, setEmpleados] = useState<EmpleadoActivo[]>([]);
   const [modulosCatalogo, setModulosCatalogo] = useState<ModuloCatalogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -187,17 +189,23 @@ export default function ProyectoDetalleInner({
   useEffect(() => {
     let c = false;
     (async () => {
-      const [r, rUsers, rModulos] = await Promise.all([
+      const [r, rUsers, rModulos, rEmp] = await Promise.all([
         fetchWithSupabaseSession("/api/proyectos/estados", { cache: "no-store" }),
         fetchWithSupabaseSession("/api/usuarios/empresa-activos", { cache: "no-store" }),
         fetchWithSupabaseSession("/api/proyectos/modulos-catalogo", { cache: "no-store" }),
+        fetchWithSupabaseSession("/api/rrhh/empleados", { cache: "no-store" }),
       ]);
       const j = (await r.json()) as { success?: boolean; data?: { id: string; nombre: string }[] };
       const jUsers = (await rUsers.json()) as { usuarios?: UsuarioActivo[] };
       const jModulos = (await rModulos.json()) as { success?: boolean; data?: ModuloCatalogo[] };
+      const jEmp = (await rEmp.json().catch(() => ({}))) as {
+        success?: boolean;
+        data?: { empleados?: EmpleadoActivo[] };
+      };
       if (!c && j.success && j.data) setEstados(j.data);
       if (!c) setUsuarios(jUsers.usuarios ?? []);
       if (!c && jModulos.success && jModulos.data) setModulosCatalogo(jModulos.data);
+      if (!c && jEmp.success) setEmpleados(jEmp.data?.empleados ?? []);
     })();
     return () => {
       c = true;
@@ -777,11 +785,25 @@ export default function ProyectoDetalleInner({
                   onChange={(e) => setResponsableTecnicoId(e.target.value)}
                 >
                   <option value="">—</option>
-                  {usuarios.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.nombre || u.email || u.id.slice(0, 8)}
-                    </option>
-                  ))}
+                  {esObra && empleados.length > 0 ? (
+                    <optgroup label="Empleados">
+                      {empleados.map((emp) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.nombre}
+                          {emp.cargo ? ` — ${emp.cargo}` : ""}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ) : null}
+                  {usuarios.length > 0 ? (
+                    <optgroup label={esObra ? "Usuarios del sistema" : "Usuarios"}>
+                      {usuarios.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.nombre || u.email || u.id.slice(0, 8)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ) : null}
                 </select>
               </label>
               {esWeb ? (
