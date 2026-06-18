@@ -3,6 +3,9 @@ import { getEmpresaId } from "@/lib/db/empresa";
 import { ymdInicioFinMesLocal } from "@/lib/fechas/calendario";
 import { getBrowserSupabaseForEmpresaData } from "@/lib/supabase/browser-data-client";
 
+export type Moneda = "EUR" | "USD" | "GS";
+export type IvaTipo = "21" | "10" | "4" | "exenta";
+
 export type Gasto = {
   id: string;
   empresa_id: string;
@@ -15,6 +18,11 @@ export type Gasto = {
   fecha: string;
   created_at: string;
   proyecto_id?: string | null;
+  moneda?: Moneda;
+  banco?: string | null;
+  iva_deducible?: boolean;
+  iva_tipo?: IvaTipo | null;
+  monto_iva?: number;
 };
 
 export type GastoInput = {
@@ -26,6 +34,11 @@ export type GastoInput = {
   frecuencia?: string;
   fecha: string;
   proyecto_id?: string | null;
+  moneda?: Moneda;
+  banco?: string | null;
+  iva_deducible?: boolean;
+  iva_tipo?: IvaTipo | null;
+  monto_iva?: number;
 };
 
 function mapRow(r: Record<string, unknown>): Gasto {
@@ -41,6 +54,11 @@ function mapRow(r: Record<string, unknown>): Gasto {
     fecha: (r.fecha as string) ?? "",
     created_at: (r.created_at as string) ?? "",
     proyecto_id: (r.proyecto_id as string | null | undefined) ?? null,
+    moneda: ((r.moneda as Moneda | undefined) ?? "EUR"),
+    banco: (r.banco as string | null | undefined) ?? null,
+    iva_deducible: Boolean(r.iva_deducible),
+    iva_tipo: (r.iva_tipo as IvaTipo | null | undefined) ?? null,
+    monto_iva: r.monto_iva != null ? Number(r.monto_iva) || 0 : 0,
   };
 }
 
@@ -102,6 +120,11 @@ export async function createGasto(input: GastoInput): Promise<Gasto> {
       frecuencia: input.frecuencia?.trim() || null,
       fecha: input.fecha,
       proyecto_id: input.proyecto_id ?? null,
+      moneda: input.moneda ?? "EUR",
+      banco: input.banco?.trim() || null,
+      iva_deducible: Boolean(input.iva_deducible),
+      iva_tipo: input.iva_deducible ? input.iva_tipo ?? null : null,
+      monto_iva: input.iva_deducible ? Number(input.monto_iva ?? 0) || 0 : 0,
       // Gastos se asumen liquidados al cargarlos (mismo criterio que el backfill).
       monto_pagado: input.monto,
       fecha_pago: input.fecha,
@@ -125,6 +148,12 @@ export async function updateGasto(id: string, input: Partial<GastoInput>): Promi
   if (input.recurrente !== undefined) update.recurrente = input.recurrente;
   if (input.frecuencia !== undefined) update.frecuencia = input.frecuencia?.trim() || null;
   if (input.fecha !== undefined) update.fecha = input.fecha;
+  if (input.proyecto_id !== undefined) update.proyecto_id = input.proyecto_id;
+  if (input.moneda !== undefined) update.moneda = input.moneda;
+  if (input.banco !== undefined) update.banco = input.banco?.trim() || null;
+  if (input.iva_deducible !== undefined) update.iva_deducible = input.iva_deducible;
+  if (input.iva_tipo !== undefined) update.iva_tipo = input.iva_tipo;
+  if (input.monto_iva !== undefined) update.monto_iva = input.monto_iva;
 
   const { data, error } = await supabase
     .from("gastos")
