@@ -199,7 +199,7 @@ export default function ClienteDetailPage() {
     linkedin:            "",
     valor_cliente:       "",
     condicion_pago:      "",
-    moneda_preferida:      "GS" as "GS" | "USD",
+    moneda_preferida:      "EUR" as "GS" | "USD" | "EUR",
     vendedor_asignado:     "",
     vendedor_usuario_id:   "",
     tipo_servicio_cliente: "" as string,
@@ -355,7 +355,7 @@ export default function ClienteDetailPage() {
         linkedin:            c.linkedin            ?? "",
         valor_cliente:       c.valor_cliente != null ? String(c.valor_cliente) : "",
         condicion_pago:       c.condicion_pago      ?? "",
-        moneda_preferida:     c.moneda_preferida    ?? "GS",
+        moneda_preferida:     c.moneda_preferida    ?? "EUR",
         vendedor_asignado:    c.vendedor_asignado   ?? "",
         vendedor_usuario_id:  c.vendedor_usuario_id ?? "",
         tipo_servicio_cliente: c.tipo_servicio_cliente ?? "",
@@ -868,7 +868,7 @@ export default function ClienteDetailPage() {
         fecha_vencimiento: hoy,
         monto,
         tipo: "contado",
-        moneda: cliente.moneda_preferida ?? "GS",
+        moneda: cliente.moneda_preferida ?? "EUR",
         descripcion_linea: formFacturaContado.descripcion.trim() || "Venta al contado",
         iva_tipo: formFacturaContado.iva_tipo,
       });
@@ -1084,7 +1084,7 @@ export default function ClienteDetailPage() {
                   "—"
                 ),
               },
-              { label: "Moneda", value: cliente.moneda_preferida ?? "GS" },
+              { label: "Moneda", value: cliente.moneda_preferida ?? "EUR" },
               {
                 label: "Vendedor",
                 value: (() => {
@@ -1623,10 +1623,10 @@ export default function ClienteDetailPage() {
                     <select
                       name="moneda_preferida"
                       value={form.moneda_preferida}
-                      onChange={(e) => setForm((p) => ({ ...p, moneda_preferida: e.target.value as "GS" | "USD" }))}
+                      onChange={(e) => setForm((p) => ({ ...p, moneda_preferida: e.target.value as "GS" | "USD" | "EUR" }))}
                       className={inputClass}
                     >
-                      <option value="GS">Guaraníes (GS)</option>
+                      <option value="EUR">Euros (€)</option>
                       <option value="USD">Dólares (USD)</option>
                     </select>
                   </div>
@@ -2244,7 +2244,7 @@ export default function ClienteDetailPage() {
                 cliente_id: id,
                 plan_id: formSusc.plan_id || null,
                 precio: parseFloat(formSusc.precio) || (plan?.precio ?? 0),
-                moneda: cliente.moneda_preferida ?? "GS",
+                moneda: cliente.moneda_preferida ?? "EUR",
                 fecha_inicio: formSusc.fecha_inicio || new Date().toISOString().slice(0, 10),
                 duracion_meses: parseInt(formSusc.duracion_meses, 10) || 12,
                 dia_facturacion: parseInt(formSusc.dia_facturacion, 10) || 1,

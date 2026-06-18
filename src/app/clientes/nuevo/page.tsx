@@ -67,13 +67,13 @@ function NuevoClienteForm() {
     email_secundario:    "",
     direccion:           "",
     ciudad:              "",
-    pais:                "PARAGUAY",
+    pais:                "ESPAÑA",
     sitio_web:           "",
     instagram:           "",
     linkedin:            "",
     valor_cliente:       "",
     condicion_pago:      "CONTADO",
-    moneda_preferida:    "GS" as "GS" | "USD",
+    moneda_preferida:    "EUR" as "GS" | "USD" | "EUR",
     vendedor_asignado:   "",
     vendedor_usuario_id: "",
     origen:              "MANUAL" as OrigenCliente,
@@ -581,7 +581,7 @@ function NuevoClienteForm() {
                   name="ciudad"
                   value={form.ciudad}
                   onChange={handleChange}
-                  placeholder="ASUNCIÓN"
+                  placeholder="MADRID"
                   className={`${inputClass} uppercase`}
                 />
               </div>
@@ -626,10 +626,10 @@ function NuevoClienteForm() {
                 <select
                   name="moneda_preferida"
                   value={form.moneda_preferida}
-                  onChange={(e) => setForm((prev) => ({ ...prev, moneda_preferida: e.target.value as "GS" | "USD" }))}
+                  onChange={(e) => setForm((prev) => ({ ...prev, moneda_preferida: e.target.value as "GS" | "USD" | "EUR" }))}
                   className={inputClass}
                 >
-                  <option value="GS">Guaraníes (GS)</option>
+                  <option value="EUR">Euros (€)</option>
                   <option value="USD">Dólares (USD)</option>
                 </select>
               </div>
