@@ -240,7 +240,9 @@ export default function ClientePicker({
               onMouseDown={(e) => { e.preventDefault(); abrirCreacion(); }}
               className="block w-full border-t border-slate-100 bg-[#E5F4F4] px-3 py-2 text-left text-xs font-semibold text-[#3F8E91] hover:bg-[#D2EBEB]"
             >
-              + Crear cliente «{busqueda.trim()}»
+              {draftMode
+                ? `+ Cargar contacto «${busqueda.trim()}» (se crea al aprobar)`
+                : `+ Crear cliente «${busqueda.trim()}»`}
             </button>
           )}
         </div>
