@@ -1030,6 +1030,11 @@ function DatosObraSection({
   esPresupuesto: boolean;
 }) {
   const [tipos, setTipos] = React.useState<{ id: string; nombre: string }[]>([]);
+  const [crearTipoOpen, setCrearTipoOpen] = React.useState(false);
+  const [nuevoTipoNombre, setNuevoTipoNombre] = React.useState("");
+  const [nuevoTipoBusy, setNuevoTipoBusy] = React.useState(false);
+  const [nuevoTipoError, setNuevoTipoError] = React.useState<string | null>(null);
+
   React.useEffect(() => {
     fetch("/api/proyectos/tipos", { credentials: "include", cache: "no-store" })
       .then((r) => r.json())
@@ -1038,6 +1043,40 @@ function DatosObraSection({
       })
       .catch(() => { /* tolerante */ });
   }, []);
+
+  async function crearTipo() {
+    const nombre = nuevoTipoNombre.trim();
+    if (!nombre) {
+      setNuevoTipoError("El nombre es obligatorio");
+      return;
+    }
+    setNuevoTipoBusy(true);
+    setNuevoTipoError(null);
+    try {
+      const r = await fetch("/api/proyectos/tipos", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre }),
+      });
+      const j = (await r.json().catch(() => ({}))) as {
+        success?: boolean;
+        data?: { id: string; nombre: string };
+        error?: string;
+      };
+      if (!r.ok || !j.success || !j.data) {
+        setNuevoTipoError(j.error ?? `No se pudo crear (${r.status})`);
+        return;
+      }
+      const nuevo = { id: j.data.id, nombre: j.data.nombre };
+      setTipos((prev) => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre, "es")));
+      setMeta((p) => ({ ...p, tipo_obra_id: nuevo.id }));
+      setNuevoTipoNombre("");
+      setCrearTipoOpen(false);
+    } finally {
+      setNuevoTipoBusy(false);
+    }
+  }
   const setField = <K extends keyof ObraMeta>(k: K, v: ObraMeta[K]) => setMeta((p) => ({ ...p, [k]: v }));
 
   return (
@@ -1102,12 +1141,99 @@ function DatosObraSection({
           </div>
           <div>
             <label className={PRESUP_LABEL}>Tipo de obra (proyecto)</label>
-            <select value={meta.tipo_obra_id} onChange={(e) => setField("tipo_obra_id", e.target.value)}
-              className={PRESUP_INPUT}>
-              <option value="">— Tipo por defecto —</option>
-              {tipos.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-            </select>
+            <div className="flex gap-2">
+              <select
+                value={meta.tipo_obra_id}
+                onChange={(e) => setField("tipo_obra_id", e.target.value)}
+                className={`${PRESUP_INPUT} flex-1`}
+              >
+                <option value="">— Tipo por defecto —</option>
+                {tipos.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nombre}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => {
+                  setNuevoTipoError(null);
+                  setNuevoTipoNombre("");
+                  setCrearTipoOpen(true);
+                }}
+                className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-medium text-sky-700 hover:bg-sky-100"
+                title="Crear nuevo tipo de obra"
+              >
+                + Nuevo
+              </button>
+            </div>
           </div>
+
+          {crearTipoOpen && (
+            <div
+              className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-900/55 backdrop-blur-sm p-4"
+              role="dialog"
+              aria-modal="true"
+              onClick={() => {
+                if (!nuevoTipoBusy) setCrearTipoOpen(false);
+              }}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl"
+              >
+                <div className="px-5 pt-5 pb-2">
+                  <h3 className="text-base font-semibold text-slate-900">Nuevo tipo de obra</h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Se agrega al catálogo de la empresa y queda disponible para todos los
+                    presupuestos y proyectos.
+                  </p>
+                </div>
+                <div className="px-5 py-3">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    Nombre <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    autoFocus
+                    value={nuevoTipoNombre}
+                    onChange={(e) => {
+                      setNuevoTipoNombre(e.target.value);
+                      if (nuevoTipoError) setNuevoTipoError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !nuevoTipoBusy) {
+                        e.preventDefault();
+                        void crearTipo();
+                      }
+                    }}
+                    placeholder="Ej. Sistemas ventilados"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                  {nuevoTipoError && (
+                    <p className="mt-2 text-xs text-red-600">{nuevoTipoError}</p>
+                  )}
+                </div>
+                <div className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3 rounded-b-2xl">
+                  <button
+                    type="button"
+                    onClick={() => setCrearTipoOpen(false)}
+                    disabled={nuevoTipoBusy}
+                    className="rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void crearTipo()}
+                    disabled={nuevoTipoBusy || !nuevoTipoNombre.trim()}
+                    className="rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
+                  >
+                    {nuevoTipoBusy ? "Guardando…" : "Crear tipo"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           <div>
             <label className={PRESUP_LABEL}>Ubicación</label>
             <input value={meta.ubicacion} onChange={(e) => setField("ubicacion", e.target.value)}
