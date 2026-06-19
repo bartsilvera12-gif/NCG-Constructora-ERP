@@ -76,11 +76,11 @@ export default function PersonalPorObraPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="NCG · Reportes"
+        eyebrow="NCG · RRHH"
         title="Personal por obra"
         description="Mano de obra consolidada: horas y costo por obra, con desglose por empleado."
-        backHref="/reportes"
-        backLabel="Reportes"
+        backHref="/rrhh"
+        backLabel="RRHH"
       />
 
       {err && <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{err}</div>}
