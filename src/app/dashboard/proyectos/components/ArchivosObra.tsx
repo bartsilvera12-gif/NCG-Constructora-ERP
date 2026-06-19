@@ -59,16 +59,22 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
   const cantImagenes = archivos.filter((a) => esImagen(a.mime_type)).length;
   const limiteAlcanzado = cantImagenes >= MAX_IMAGENES;
 
-  // Detecta soporte de getUserMedia (web). Si existe, usamos la modal de cámara
-  // tanto en desktop como en mobile. Si no, caemos al <input capture="environment">.
-  const usarCamaraWeb =
-    typeof navigator !== "undefined" &&
-    !!navigator.mediaDevices &&
-    typeof navigator.mediaDevices.getUserMedia === "function";
-
+  // En mobile (puntero táctil) usamos siempre el input nativo con
+  // capture="environment": abre la cámara de fábrica del celular, que es
+  // mucho más confiable que getUserMedia en navegadores como Brave/Chrome
+  // mobile. En desktop sí usamos el modal con getUserMedia.
   const onCamaraClick = () => {
-    if (usarCamaraWeb) setCamOpen(true);
-    else cameraRef.current?.click();
+    const esMobile =
+      typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+    const tieneGetUserMedia =
+      typeof navigator !== "undefined" &&
+      !!navigator.mediaDevices &&
+      typeof navigator.mediaDevices.getUserMedia === "function";
+    if (!esMobile && tieneGetUserMedia) {
+      setCamOpen(true);
+    } else {
+      cameraRef.current?.click();
+    }
   };
 
   const cargar = useCallback(async () => {
@@ -105,13 +111,11 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
         method: "POST",
         body: fd,
       });
-      const j = (await r.json().catch(() => ({}))) as {
-        success?: boolean;
-        data?: { creados?: Archivo[]; errores?: string[] };
-        error?: string;
-      };
+      const rawText = await r.text();
+      let j: { success?: boolean; data?: { creados?: Archivo[]; errores?: string[] }; error?: string } = {};
+      try { j = JSON.parse(rawText); } catch {}
       if (!r.ok || !j.success) {
-        setErr(j.error ?? `No se pudieron subir los archivos (HTTP ${r.status}).`);
+        setErr(j.error ?? `HTTP ${r.status}: ${rawText.slice(0, 200) || "respuesta vacía"}`);
         return;
       }
       if (j.data?.errores?.length) setErr(j.data.errores.join(" "));
@@ -167,14 +171,16 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
           dragActivo ? "border-[#4FAEB2] bg-[#E5F4F4]" : "border-slate-300 bg-slate-50"
         }`}
       >
-        <div className="flex flex-col items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-10 w-10 text-slate-400">
+        <div className="flex flex-col items-center gap-1.5 sm:gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="hidden h-10 w-10 text-slate-400 sm:block">
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
           </svg>
           <p className="text-sm text-slate-700">
-            Arrastrá tus fotos o documentos acá, o usá los botones de abajo.
+            <span className="hidden sm:inline">Arrastrá tus fotos o documentos acá, o usá </span>
+            <span className="sm:hidden">Usá </span>
+            los botones de abajo.
           </p>
-          <p className="text-xs text-slate-500">
+          <p className="hidden text-xs text-slate-500 sm:block">
             JPG, PNG, WebP, GIF, HEIC, PDF, Word, Excel, TXT, CSV — hasta 25 MB cada uno.
           </p>
           <p className={`text-xs ${limiteAlcanzado ? "text-amber-600 font-semibold" : "text-slate-500"}`}>
