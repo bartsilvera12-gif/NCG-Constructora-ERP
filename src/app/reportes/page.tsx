@@ -2,7 +2,7 @@
 
 import PageHeader from "@/components/ui/PageHeader";
 import { ReportCard } from "@/components/reportes/ReportCard";
-import { Wallet, ShoppingCart, Package, Truck, ArrowLeftRight, TrendingUp, Users, AlertTriangle } from "lucide-react";
+import { Wallet, ShoppingCart, Package, Truck, ArrowLeftRight, TrendingUp, Users, AlertTriangle, Hammer } from "lucide-react";
 
 /** Hub de reportería operativa: cards estilo Configuración Global. */
 export default function ReportesPage() {
@@ -22,6 +22,15 @@ export default function ReportesPage() {
             icon={TrendingUp}
             description="Todas las obras con presupuesto, facturado, costo real y margen %, ordenable."
             href="/reportes/rentabilidad-obras"
+          />
+        </li>
+        <li>
+          <ReportCard
+            title="Tipos de trabajo"
+            subtitle="Servicios más demandados"
+            icon={Hammer}
+            description="Ranking de tipos de obra/servicio según presupuestos y ventas, con total facturado por tipo y filtro de fechas."
+            href="/reportes/tipos-trabajo"
           />
         </li>
         <li>

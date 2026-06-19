@@ -11,6 +11,7 @@ import ClientePicker from "@/components/ventas/ClientePicker";
 import { saveVenta } from "@/lib/ventas/storage";
 import type { TipoIvaVenta, TipoVenta, MonedaVenta, LineaVenta, MetodoPago, TipoPrecioVenta, PagoDetalleVenta } from "@/lib/ventas/types";
 import { parseImporte } from "@/lib/utils/money";
+import { TIPOS_SERVICIO_NCG } from "@/lib/presupuesto/tipos-servicio";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -947,22 +948,6 @@ const INITIAL_OBRA_META: ObraMeta = {
   condiciones: "",
 };
 
-/** Catálogo NCG de tipos de servicio (mostrado como chips de selección). */
-const TIPOS_SERVICIO_NCG: { value: string; label: string }[] = [
-  { value: "reparacion_tejado",      label: "Reparación / mantenimiento de tejado" },
-  { value: "retejado",               label: "Retejado / sustitución de tejas" },
-  { value: "tejas_curvas",           label: "Tejas curvas" },
-  { value: "impermeabilizacion",     label: "Impermeabilización y aislamiento" },
-  { value: "sistemas_ventilados",    label: "Sistemas ventilados" },
-  { value: "panel_sandwich",         label: "Paneles sándwich grecados" },
-  { value: "canalones_bajantes",     label: "Canalones y bajantes" },
-  { value: "ventanas_velux",         label: "Ventanas / claraboyas Velux" },
-  { value: "cubiertas_ligeras",      label: "Cubiertas ligeras" },
-  { value: "calculo_montaje",        label: "Cálculo y montaje de cubiertas" },
-  { value: "cubiertas_gl24",         label: "Cubiertas de madera GL24" },
-  { value: "accesorios_certificados",label: "Accesorios certificados" },
-  { value: "otro",                   label: "Otro / no estoy seguro" },
-];
 
 function obraMetaToPayload(m: ObraMeta): Record<string, unknown> {
   const str = (s: string) => (s.trim() ? s.trim() : null);
