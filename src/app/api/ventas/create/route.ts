@@ -288,27 +288,27 @@ export async function POST(request: NextRequest) {
     const tipoDocumento: "venta" | "presupuesto" =
       String(o.tipo_documento ?? "").trim().toLowerCase() === "presupuesto" ? "presupuesto" : "venta";
 
-    // Metadata específica del presupuesto de obra (titulo, ubicación, etc.).
+    // Metadata específica del presupuesto/obra. Guardamos TODO el meta que viene
+    // del form (cliente_*, condiciones, garantias, forma_pago, etc.); el render
+    // del PDF y los flujos de aprobación leen estos campos.
     let presupuestoMeta: Record<string, unknown> | null = null;
-    if (tipoDocumento === "presupuesto") {
-      const pm = (o.presupuesto_meta ?? null) as Record<string, unknown> | null;
-      if (pm && typeof pm === "object") {
-        const trim = (v: unknown) => (typeof v === "string" ? v.trim() || null : null);
-        const num = (v: unknown) => {
-          if (v == null || v === "") return null;
-          const n = Number(v);
-          return Number.isFinite(n) ? n : null;
-        };
-        presupuestoMeta = {
-          titulo_obra: trim(pm.titulo_obra),
-          tipo_obra_id: trim(pm.tipo_obra_id),
-          ubicacion: trim(pm.ubicacion),
-          superficie_m2: num(pm.superficie_m2),
-          descripcion: trim(pm.descripcion),
-          validez_dias: num(pm.validez_dias),
-          condiciones: trim(pm.condiciones),
-        };
+    const pmRaw = (o.presupuesto_meta ?? null) as Record<string, unknown> | null;
+    if (pmRaw && typeof pmRaw === "object") {
+      const trim = (v: unknown) => (typeof v === "string" ? v.trim() || null : null);
+      const num = (v: unknown) => {
+        if (v == null || v === "") return null;
+        const n = Number(v);
+        return Number.isFinite(n) ? n : null;
+      };
+      // Sanitizamos: strings → trim/null, numbers → Number/null, todo lo demás
+      // pasa tal cual (booleanos, objects, etc.).
+      const clean: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(pmRaw)) {
+        if (typeof v === "string") clean[k] = trim(v);
+        else if (typeof v === "number") clean[k] = num(v);
+        else clean[k] = v ?? null;
       }
+      presupuestoMeta = clean;
     }
 
     const { ventaId, numeroControl, fechaIso } = await createVentaTransaccionalPg({

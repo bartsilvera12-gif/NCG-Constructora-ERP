@@ -158,7 +158,7 @@ export async function POST(request: NextRequest, ctxParams: { params: Promise<{ 
           size_bytes: file.size,
           storage_bucket: PROYECTO_ARCHIVOS_BUCKET,
           storage_path: "pending",
-          uploaded_by: auth.user?.id ?? null,
+          uploaded_by: auth.usuarioCatalogId ?? null,
         })
         .select("id")
         .single();
