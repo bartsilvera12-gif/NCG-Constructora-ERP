@@ -52,6 +52,7 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
   const [preview, setPreview] = useState<Archivo | null>(null);
   const [borrandoId, setBorrandoId] = useState<string | null>(null);
   const [camOpen, setCamOpen] = useState(false);
+  const [debug, setDebug] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
@@ -80,14 +81,19 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
 
   async function subir(files: FileList | File[]) {
     const arr = Array.from(files);
-    if (arr.length === 0) return;
+    if (arr.length === 0) {
+      setDebug("subir(): lista de archivos vacía — el input no devolvió nada.");
+      return;
+    }
     setSubiendo(true);
     setErr(null);
+    setDebug(
+      `Enviando ${arr.length} archivo(s): ` +
+        arr.map((f) => `${f.name} (${f.type || "?"}, ${f.size}b)`).join(", ")
+    );
     try {
       const fd = new FormData();
       for (const f of arr) {
-        // Algunos navegadores (Brave/Chrome mobile en ciertos casos) no envían
-        // bien File creado desde Blob por canvas → mandamos blob+filename.
         fd.append("file", f, f.name || "archivo");
       }
       const r = await fetchWithSupabaseSession(`/api/proyectos/${projectId}/archivos`, {
@@ -97,6 +103,12 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
       const rawText = await r.text();
       let j: { success?: boolean; data?: { creados?: Archivo[]; errores?: string[] }; error?: string } = {};
       try { j = JSON.parse(rawText); } catch {}
+      setDebug(
+        `HTTP ${r.status} · creados=${j.data?.creados?.length ?? 0} · errores=${j.data?.errores?.length ?? 0}` +
+          (j.error ? ` · err="${j.error}"` : "") +
+          (j.data?.errores?.length ? ` · "${j.data.errores.join(" | ")}"` : "") +
+          (rawText.length > 0 && !j.success ? ` · body="${rawText.slice(0, 300)}"` : "")
+      );
       if (!r.ok || !j.success) {
         setErr(j.error ?? `HTTP ${r.status}: ${rawText.slice(0, 200) || "respuesta vacía"}`);
         return;
@@ -104,7 +116,9 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
       if (j.data?.errores?.length) setErr(j.data.errores.join(" "));
       await cargar();
     } catch (e) {
-      setErr(`Error de red al subir: ${e instanceof Error ? e.message : String(e)}`);
+      const msg = e instanceof Error ? e.message : String(e);
+      setErr(`Error de red al subir: ${msg}`);
+      setDebug(`Exception: ${msg}`);
     } finally {
       setSubiendo(false);
     }
@@ -152,6 +166,20 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
             <path d="M17 10a7 7 0 0 1-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
           Subiendo archivo…
+        </div>
+      )}
+      {debug && (
+        <div className="rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-[11px] font-mono break-all text-slate-700">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1">{debug}</div>
+            <button
+              type="button"
+              onClick={() => setDebug(null)}
+              className="shrink-0 text-slate-400 hover:text-slate-600"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
       {/* Zona de upload (file picker + drag&drop). */}
