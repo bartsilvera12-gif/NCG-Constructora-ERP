@@ -82,6 +82,154 @@ function formatGs(v: number): string {
   return `€ ${(v).toLocaleString("es-PY", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 }
 
+// ── i18n presupuesto ───────────────────────────────────────────────────────
+type Lang = "es" | "en" | "fr" | "it";
+function parseLang(v: string | null): Lang {
+  const s = (v || "").toLowerCase();
+  if (s === "en" || s === "fr" || s === "it") return s;
+  return "es";
+}
+const LOCALE_BY_LANG: Record<Lang, string> = {
+  es: "es-ES",
+  en: "en-GB",
+  fr: "fr-FR",
+  it: "it-IT",
+};
+const I18N: Record<Lang, Record<string, string>> = {
+  es: {
+    subtitle: "Presupuesto de obra",
+    tag: "PRESUPUESTO",
+    emitido: "Emitido",
+    valido_hasta: "Válido hasta",
+    cliente: "Cliente",
+    cif: "CIF/NIF",
+    tel: "Tel",
+    ubicacion: "Ubicación de la obra",
+    superficie: "Superficie",
+    trabajo: "Trabajo a realizar",
+    inicio: "Inicio previsto",
+    plazo: "Plazo estimado",
+    th_concepto: "Concepto",
+    th_cant: "Cant.",
+    th_punit: "P. unit.",
+    th_iva: "IVA",
+    th_iva_eur: "IVA €",
+    th_total: "Total",
+    total: "Total",
+    iva_incluido: "IVA incluido",
+    total_pres: "TOTAL PRESUPUESTO",
+    forma_pago: "Forma de pago",
+    condiciones: "Condiciones",
+    gar_mo: "Garantía mano de obra",
+    gar_mat: "Garantía materiales",
+    no_incluido: "No incluido",
+    obs_tec: "Observaciones técnicas",
+    conformidad: "Conformidad del cliente",
+    imprimir: "Imprimir / Guardar PDF",
+    footer_validez: "Presupuesto válido {n} días desde la fecha de emisión. Los precios incluyen IVA.",
+    footer_legal: "Documento interno — no constituye factura. Al aceptar este presupuesto se generará la obra correspondiente.",
+  },
+  en: {
+    subtitle: "Construction quote",
+    tag: "QUOTE",
+    emitido: "Issued",
+    valido_hasta: "Valid until",
+    cliente: "Client",
+    cif: "Tax ID",
+    tel: "Phone",
+    ubicacion: "Project location",
+    superficie: "Area",
+    trabajo: "Scope of work",
+    inicio: "Estimated start",
+    plazo: "Estimated duration",
+    th_concepto: "Description",
+    th_cant: "Qty",
+    th_punit: "Unit price",
+    th_iva: "VAT",
+    th_iva_eur: "VAT €",
+    th_total: "Total",
+    total: "Total",
+    iva_incluido: "VAT included",
+    total_pres: "QUOTE TOTAL",
+    forma_pago: "Payment terms",
+    condiciones: "Conditions",
+    gar_mo: "Labour warranty",
+    gar_mat: "Materials warranty",
+    no_incluido: "Not included",
+    obs_tec: "Technical notes",
+    conformidad: "Client acceptance",
+    imprimir: "Print / Save as PDF",
+    footer_validez: "Quote valid for {n} days from the issue date. Prices include VAT.",
+    footer_legal: "Internal document — not a tax invoice. Upon acceptance the corresponding project will be created.",
+  },
+  fr: {
+    subtitle: "Devis de travaux",
+    tag: "DEVIS",
+    emitido: "Émis le",
+    valido_hasta: "Valable jusqu'au",
+    cliente: "Client",
+    cif: "N° fiscal",
+    tel: "Tél",
+    ubicacion: "Lieu du chantier",
+    superficie: "Surface",
+    trabajo: "Travaux à réaliser",
+    inicio: "Début prévu",
+    plazo: "Durée estimée",
+    th_concepto: "Désignation",
+    th_cant: "Qté",
+    th_punit: "P. unit.",
+    th_iva: "TVA",
+    th_iva_eur: "TVA €",
+    th_total: "Total",
+    total: "Total",
+    iva_incluido: "TVA incluse",
+    total_pres: "TOTAL DEVIS",
+    forma_pago: "Modalités de paiement",
+    condiciones: "Conditions",
+    gar_mo: "Garantie main-d'œuvre",
+    gar_mat: "Garantie matériaux",
+    no_incluido: "Non inclus",
+    obs_tec: "Observations techniques",
+    conformidad: "Bon pour accord du client",
+    imprimir: "Imprimer / Enregistrer en PDF",
+    footer_validez: "Devis valable {n} jours à compter de la date d'émission. Les prix incluent la TVA.",
+    footer_legal: "Document interne — ne constitue pas une facture. L'acceptation de ce devis entraînera la création du chantier correspondant.",
+  },
+  it: {
+    subtitle: "Preventivo lavori",
+    tag: "PREVENTIVO",
+    emitido: "Emesso il",
+    valido_hasta: "Valido fino al",
+    cliente: "Cliente",
+    cif: "Partita IVA",
+    tel: "Tel",
+    ubicacion: "Ubicazione del cantiere",
+    superficie: "Superficie",
+    trabajo: "Lavori da eseguire",
+    inicio: "Inizio previsto",
+    plazo: "Durata stimata",
+    th_concepto: "Descrizione",
+    th_cant: "Qtà",
+    th_punit: "P. unit.",
+    th_iva: "IVA",
+    th_iva_eur: "IVA €",
+    th_total: "Totale",
+    total: "Totale",
+    iva_incluido: "IVA inclusa",
+    total_pres: "TOTALE PREVENTIVO",
+    forma_pago: "Modalità di pagamento",
+    condiciones: "Condizioni",
+    gar_mo: "Garanzia manodopera",
+    gar_mat: "Garanzia materiali",
+    no_incluido: "Non incluso",
+    obs_tec: "Note tecniche",
+    conformidad: "Accettazione del cliente",
+    imprimir: "Stampa / Salva come PDF",
+    footer_validez: "Preventivo valido {n} giorni dalla data di emissione. I prezzi includono l'IVA.",
+    footer_legal: "Documento interno — non costituisce fattura. All'accettazione di questo preventivo verrà creato il relativo cantiere.",
+  },
+};
+
 function formatFecha(iso: string): string {
   try {
     const d = new Date(iso);
@@ -184,10 +332,13 @@ function metaNum(meta: Record<string, unknown> | null, key: string): number | nu
   return null;
 }
 
-function formatFechaCorta(iso: string | null | undefined): string {
+function formatFechaCorta(iso: string | null | undefined, lang: Lang = "es"): string {
   if (!iso) return "—";
   try {
     const d = new Date(iso);
+    if (lang === "en") {
+      // dd/mm/yyyy también funciona en en-GB; mantenemos formato europeo uniforme.
+    }
     const dd = String(d.getDate()).padStart(2, "0");
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     return `${dd}/${mm}/${d.getFullYear()}`;
@@ -196,12 +347,19 @@ function formatFechaCorta(iso: string | null | undefined): string {
   }
 }
 
+function formatEurLang(v: number, lang: Lang): string {
+  return `€ ${v.toLocaleString(LOCALE_BY_LANG[lang], { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+}
+
 function renderPresupuesto(opts: {
   venta: VentaRow;
   items: ItemRow[];
   cliente: ClienteLite | null;
+  lang: Lang;
 }): string {
-  const { venta, items, cliente } = opts;
+  const { venta, items, cliente, lang } = opts;
+  const t = I18N[lang];
+  const fmt = (n: number) => formatEurLang(n, lang);
   const meta = venta.presupuesto_meta ?? {};
 
   const tituloObra = metaStr(meta, "titulo_obra") ?? "Presupuesto de obra";
@@ -235,7 +393,7 @@ function renderPresupuesto(opts: {
     const d = new Date(venta.fecha);
     if (Number.isFinite(d.getTime())) {
       d.setDate(d.getDate() + validezDias);
-      validoHasta = formatFechaCorta(d.toISOString());
+      validoHasta = formatFechaCorta(d.toISOString(), lang);
     }
   } catch {}
 
@@ -256,11 +414,11 @@ function renderPresupuesto(opts: {
         ${desc ? `<div class="item-desc">${escapeHtml(desc)}</div>` : ""}
         ${sku ? `<div class="item-sku">${escapeHtml(sku)}</div>` : ""}
       </td>
-      <td class="num tabular">${cant.toLocaleString("es-ES", { maximumFractionDigits: 2 })}</td>
-      <td class="num tabular">${formatGs(punit)}</td>
+      <td class="num tabular">${cant.toLocaleString(LOCALE_BY_LANG[lang], { maximumFractionDigits: 2 })}</td>
+      <td class="num tabular">${fmt(punit)}</td>
       <td class="num tabular muted">${tasa > 0 ? `${Math.round(tasa * 100)}%` : "—"}</td>
-      <td class="num tabular muted">${ivaInfo > 0 ? formatGs(ivaInfo) : "—"}</td>
-      <td class="num tabular strong">${formatGs(total)}</td>
+      <td class="num tabular muted">${ivaInfo > 0 ? fmt(ivaInfo) : "—"}</td>
+      <td class="num tabular strong">${fmt(total)}</td>
     </tr>`;
   }).join("");
 
@@ -276,10 +434,10 @@ function renderPresupuesto(opts: {
   const NEGOCIO_TITULO = NEGOCIO === "NEGOCIO" ? "NCG · Construcción" : NEGOCIO;
 
   return `<!doctype html>
-<html lang="es">
+<html lang="${lang}">
 <head>
 <meta charset="utf-8" />
-<title>Presupuesto ${escapeHtml(venta.numero_control)} — ${escapeHtml(NEGOCIO_TITULO)}</title>
+<title>${escapeHtml(t.tag)} ${escapeHtml(venta.numero_control)} — ${escapeHtml(NEGOCIO_TITULO)}</title>
 <style>
   :root { color-scheme: light; --ink: #0f172a; --muted: #64748b; --line: #e2e8f0; --brand: #0f766e; --soft: #f8fafc; }
   * { box-sizing: border-box; }
@@ -354,40 +512,40 @@ function renderPresupuesto(opts: {
     <div class="brand-bar">
       <div class="brand">
         <h1>${escapeHtml(NEGOCIO_TITULO)}</h1>
-        <p>Presupuesto de obra</p>
+        <p>${escapeHtml(t.subtitle)}</p>
       </div>
       <div class="doc-id">
-        <span class="tag">PRESUPUESTO</span>
+        <span class="tag">${escapeHtml(t.tag)}</span>
         <div class="num">${escapeHtml(venta.numero_control)}</div>
-        <div class="date">Emitido: ${formatFechaCorta(venta.fecha)}</div>
-        ${validoHasta ? `<div class="date">Válido hasta: ${validoHasta}</div>` : ""}
+        <div class="date">${escapeHtml(t.emitido)}: ${formatFechaCorta(venta.fecha, lang)}</div>
+        ${validoHasta ? `<div class="date">${escapeHtml(t.valido_hasta)}: ${validoHasta}</div>` : ""}
       </div>
     </div>
 
     <div class="info-grid">
       <div class="card">
-        <h3>Cliente</h3>
+        <h3>${escapeHtml(t.cliente)}</h3>
         <div class="line"><strong>${escapeHtml(clienteNombre)}</strong></div>
-        ${clienteRuc ? `<div class="line muted">CIF/NIF: ${escapeHtml(clienteRuc)}</div>` : ""}
-        ${clienteTel ? `<div class="line muted">Tel: ${escapeHtml(clienteTel)}</div>` : ""}
+        ${clienteRuc ? `<div class="line muted">${escapeHtml(t.cif)}: ${escapeHtml(clienteRuc)}</div>` : ""}
+        ${clienteTel ? `<div class="line muted">${escapeHtml(t.tel)}: ${escapeHtml(clienteTel)}</div>` : ""}
         ${clienteEmail ? `<div class="line muted">${escapeHtml(clienteEmail)}</div>` : ""}
         ${clienteDir ? `<div class="line muted">${escapeHtml(clienteDir)}</div>` : ""}
       </div>
       <div class="card">
-        <h3>Ubicación de la obra</h3>
+        <h3>${escapeHtml(t.ubicacion)}</h3>
         <div class="line">${escapeHtml(ubicacion || "—")}</div>
         ${ciudadZona ? `<div class="line muted">${escapeHtml(ciudadZona)}</div>` : ""}
-        ${superficie ? `<div class="line muted">Superficie: <strong>${escapeHtml(superficie)} ${escapeHtml(unidad)}</strong></div>` : ""}
+        ${superficie ? `<div class="line muted">${escapeHtml(t.superficie)}: <strong>${escapeHtml(superficie)} ${escapeHtml(unidad)}</strong></div>` : ""}
       </div>
     </div>
 
     <div class="obra-block">
-      <h3>Trabajo a realizar</h3>
+      <h3>${escapeHtml(t.trabajo)}</h3>
       <p class="titulo">${escapeHtml(tituloObra)}</p>
       ${descripcion ? `<div class="desc">${escapeHtml(descripcion)}</div>` : ""}
       ${(fechaInicio || plazoEstimado) ? `<div class="obra-meta">
-        ${fechaInicio ? `<span>Inicio previsto: <strong>${formatFechaCorta(fechaInicio)}</strong></span>` : ""}
-        ${plazoEstimado ? `<span>Plazo estimado: <strong>${escapeHtml(plazoEstimado)}</strong></span>` : ""}
+        ${fechaInicio ? `<span>${escapeHtml(t.inicio)}: <strong>${formatFechaCorta(fechaInicio, lang)}</strong></span>` : ""}
+        ${plazoEstimado ? `<span>${escapeHtml(t.plazo)}: <strong>${escapeHtml(plazoEstimado)}</strong></span>` : ""}
       </div>` : ""}
     </div>
 
@@ -395,12 +553,12 @@ function renderPresupuesto(opts: {
       <thead>
         <tr>
           <th class="num" style="width: 26px;">#</th>
-          <th>Concepto</th>
-          <th class="num" style="width: 60px;">Cant.</th>
-          <th class="num" style="width: 80px;">P. unit.</th>
-          <th class="num" style="width: 50px;">IVA</th>
-          <th class="num" style="width: 80px;">IVA €</th>
-          <th class="num" style="width: 90px;">Total</th>
+          <th>${escapeHtml(t.th_concepto)}</th>
+          <th class="num" style="width: 60px;">${escapeHtml(t.th_cant)}</th>
+          <th class="num" style="width: 80px;">${escapeHtml(t.th_punit)}</th>
+          <th class="num" style="width: 50px;">${escapeHtml(t.th_iva)}</th>
+          <th class="num" style="width: 80px;">${escapeHtml(t.th_iva_eur)}</th>
+          <th class="num" style="width: 90px;">${escapeHtml(t.th_total)}</th>
         </tr>
       </thead>
       <tbody>${filasItems}</tbody>
@@ -408,20 +566,20 @@ function renderPresupuesto(opts: {
 
     <div class="totals-wrap">
       <div class="totals">
-        <div class="row"><span>Total</span><strong>${formatGs(totalGeneral)}</strong></div>
-        <div class="row"><span>IVA incluido</span><span>${ivaInfoTotal > 0 ? formatGs(ivaInfoTotal) : "—"}</span></div>
-        <div class="row total-row"><span>TOTAL PRESUPUESTO</span><span>${formatGs(totalGeneral)}</span></div>
+        <div class="row"><span>${escapeHtml(t.total)}</span><strong>${fmt(totalGeneral)}</strong></div>
+        <div class="row"><span>${escapeHtml(t.iva_incluido)}</span><span>${ivaInfoTotal > 0 ? fmt(ivaInfoTotal) : "—"}</span></div>
+        <div class="row total-row"><span>${escapeHtml(t.total_pres)}</span><span>${fmt(totalGeneral)}</span></div>
       </div>
     </div>
 
     ${(formaPago || condiciones || garantiaMo || garantiaMat || exclusiones || observacionesTec) ? `
     <div class="terms">
-      ${formaPago ? `<div class="card"><h3>Forma de pago</h3><div class="line">${escapeHtml(formaPago)}</div></div>` : ""}
-      ${condiciones ? `<div class="card"><h3>Condiciones</h3><div class="line">${escapeHtml(condiciones)}</div></div>` : ""}
-      ${garantiaMo ? `<div class="card"><h3>Garantía mano de obra</h3><div class="line">${escapeHtml(garantiaMo)}</div></div>` : ""}
-      ${garantiaMat ? `<div class="card"><h3>Garantía materiales</h3><div class="line">${escapeHtml(garantiaMat)}</div></div>` : ""}
-      ${exclusiones ? `<div class="card"><h3>No incluido</h3><div class="line">${escapeHtml(exclusiones)}</div></div>` : ""}
-      ${observacionesTec ? `<div class="card"><h3>Observaciones técnicas</h3><div class="line">${escapeHtml(observacionesTec)}</div></div>` : ""}
+      ${formaPago ? `<div class="card"><h3>${escapeHtml(t.forma_pago)}</h3><div class="line">${escapeHtml(formaPago)}</div></div>` : ""}
+      ${condiciones ? `<div class="card"><h3>${escapeHtml(t.condiciones)}</h3><div class="line">${escapeHtml(condiciones)}</div></div>` : ""}
+      ${garantiaMo ? `<div class="card"><h3>${escapeHtml(t.gar_mo)}</h3><div class="line">${escapeHtml(garantiaMo)}</div></div>` : ""}
+      ${garantiaMat ? `<div class="card"><h3>${escapeHtml(t.gar_mat)}</h3><div class="line">${escapeHtml(garantiaMat)}</div></div>` : ""}
+      ${exclusiones ? `<div class="card"><h3>${escapeHtml(t.no_incluido)}</h3><div class="line">${escapeHtml(exclusiones)}</div></div>` : ""}
+      ${observacionesTec ? `<div class="card"><h3>${escapeHtml(t.obs_tec)}</h3><div class="line">${escapeHtml(observacionesTec)}</div></div>` : ""}
     </div>` : ""}
 
     <div class="signature">
@@ -431,18 +589,18 @@ function renderPresupuesto(opts: {
       </div>
       <div class="box">
         <div class="line-sig"></div>
-        <div class="label">Conformidad del cliente</div>
+        <div class="label">${escapeHtml(t.conformidad)}</div>
       </div>
     </div>
 
     <div class="footer">
-      Presupuesto válido ${validezDias} días desde la fecha de emisión. Los precios incluyen IVA.<br>
-      Documento interno — no constituye factura. Al aceptar este presupuesto se generará la obra correspondiente.
+      ${escapeHtml(t.footer_validez.replace("{n}", String(validezDias)))}<br>
+      ${escapeHtml(t.footer_legal)}
     </div>
   </div>
 
   <div class="actions">
-    <button type="button" onclick="window.print()">Imprimir / Guardar PDF</button>
+    <button type="button" onclick="window.print()">${escapeHtml(t.imprimir)}</button>
   </div>
   <script>
     try {
@@ -597,7 +755,8 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
         .maybeSingle();
       if (!cQ.error && cQ.data) cliente = cQ.data as ClienteLite;
     }
-    const html = renderPresupuesto({ venta, items: itemsRaw, cliente });
+    const lang = parseLang(url.searchParams.get("lang"));
+    const html = renderPresupuesto({ venta, items: itemsRaw, cliente, lang });
     return new NextResponse(html, {
       status: 200,
       headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },

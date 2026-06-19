@@ -229,15 +229,7 @@ export default function PresupuestosPage() {
                       />
                     </td>
                     <td className="py-4 text-center align-middle">
-                      <a
-                        href={`/api/ventas/${v.id}/ticket?mode=comandas`}
-                        target="_blank"
-                        rel="noopener"
-                        className="inline-flex items-center justify-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors"
-                        title="Abrir PDF del presupuesto"
-                      >
-                        Imprimir
-                      </a>
+                      <ImprimirIdiomaMenu ventaId={v.id} />
                     </td>
                   </tr>
                 ))
@@ -248,6 +240,54 @@ export default function PresupuestosPage() {
       </div>
 
       <MobileFab href="/ventas/nueva?tipo=presupuesto" label="Nuevo presupuesto" />
+    </div>
+  );
+}
+
+const IDIOMAS_PDF: Array<{ code: "es" | "en" | "fr" | "it"; label: string }> = [
+  { code: "es", label: "Español" },
+  { code: "en", label: "English" },
+  { code: "fr", label: "Français" },
+  { code: "it", label: "Italiano" },
+];
+
+function ImprimirIdiomaMenu({ ventaId }: { ventaId: string }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [open]);
+  return (
+    <div className="relative inline-block text-left" onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors"
+        title="Imprimir PDF del presupuesto"
+      >
+        Imprimir
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+          <path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute right-0 z-20 mt-1 w-40 rounded-md border border-slate-200 bg-white shadow-lg ring-1 ring-black/5">
+          {IDIOMAS_PDF.map((i) => (
+            <a
+              key={i.code}
+              href={`/api/ventas/${ventaId}/ticket?lang=${i.code}`}
+              target="_blank"
+              rel="noopener"
+              onClick={() => setOpen(false)}
+              className="block px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 first:rounded-t-md last:rounded-b-md"
+            >
+              {i.label}
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
