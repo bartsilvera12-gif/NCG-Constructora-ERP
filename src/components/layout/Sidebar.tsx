@@ -106,7 +106,6 @@ const MENU_STRUCTURE: MenuItem[] = [
   { key: "productos",        slug: "inventario",    label: "Productos",        href: "/inventario",             icon: Package },
   { key: "movimientos",      slug: "inventario",    label: "Movimientos",      href: "/inventario/movimientos", icon: ListChecks },
 
-  { key: "pagos",            slug: "pagos",         label: "Pagos",            href: "/pagos",                  icon: Receipt },
   { key: "gastos",           slug: "gastos",        label: "Gastos",           href: "/gastos",                 icon: Receipt },
   { key: "notas_credito",    slug: "notas_credito", label: "Notas de crédito", href: "/notas-credito",          icon: ScrollText },
   { key: "reportes",         slug: "reportes",      label: "Reportes",         href: "/reportes",               icon: BarChart3 },
@@ -125,7 +124,7 @@ const MENU_SECTIONS: { label: string; keys: string[] }[] = [
   { label: "Obras",      keys: ["presupuestos", "proyectos", "control_obra"] },
   { label: "Compras",    keys: ["compras", "proveedores"] },
   { label: "Inventario", keys: ["productos", "movimientos"] },
-  { label: "Finanzas",   keys: ["pagos", "gastos", "reportes", "panel_financiero"] },
+  { label: "Finanzas",   keys: ["gastos", "reportes", "panel_financiero"] },
   { label: "RRHH",       keys: ["rrhh"] },
   { label: "Admin",      keys: ["configuracion"] },
 ];
@@ -438,32 +437,25 @@ export default function Sidebar() {
     setExpandedItems((prev) => ({ ...prev, [menuKey]: !prev[menuKey] }));
   };
 
-  /** Persiste qué secciones del menú están colapsadas (por label). Cargado al
-   *  montar; cada cambio se guarda. Si no hay valor previo, todas arrancan
-   *  expandidas. */
+  /** Al cargar la página todas las secciones arrancan colapsadas (excepto
+   *  General, que tiene un solo ítem y no usa chevron). El estado se persiste
+   *  durante la sesión actual para que toggle/expand funcione, pero se
+   *  resetea en cada reload — pedido del usuario. */
   useEffect(() => {
     if (typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem("zentra:sidebar:collapsedSections");
-      if (raw) {
-        const parsed = JSON.parse(raw) as Record<string, boolean>;
-        if (parsed && typeof parsed === "object") setCollapsedSections(parsed);
-      }
-    } catch {
-      // ignore parse errors
+    const allCollapsed: Record<string, boolean> = {};
+    for (const s of MENU_SECTIONS) {
+      if (s.label !== "General") allCollapsed[s.label] = true;
     }
+    setCollapsedSections(allCollapsed);
+    // Limpia el storage viejo para que no se restaure en otros tabs.
+    try { window.localStorage.removeItem("zentra:sidebar:collapsedSections"); } catch {}
   }, []);
 
   const toggleSection = (label: string) => {
+    // No persistimos el cambio: el reload siempre vuelve al estado colapsado.
     setCollapsedSections((prev) => {
       const next = { ...prev, [label]: !prev[label] };
-      try {
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem("zentra:sidebar:collapsedSections", JSON.stringify(next));
-        }
-      } catch {
-        // ignore
-      }
       return next;
     });
   };
