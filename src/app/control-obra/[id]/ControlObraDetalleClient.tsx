@@ -18,6 +18,7 @@ import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session"
 import RentabilidadObra from "@/app/dashboard/proyectos/components/RentabilidadObra";
 import MaterialesObra from "@/app/dashboard/proyectos/components/MaterialesObra";
 import PersonalObra from "@/app/dashboard/proyectos/components/PersonalObra";
+import ImagenesObraTab from "./ImagenesObraTab";
 
 type Proyecto = {
   id: string;
