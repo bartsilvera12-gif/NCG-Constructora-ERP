@@ -193,6 +193,7 @@ export default function ClienteDetailPage() {
     email_secundario:    "",
     direccion:           "",
     ciudad:              "",
+    provincia:           "",
     pais:                "",
     sitio_web:           "",
     instagram:           "",
@@ -349,6 +350,7 @@ export default function ClienteDetailPage() {
         email_secundario:    c.email_secundario    ?? "",
         direccion:           c.direccion           ?? "",
         ciudad:              c.ciudad              ?? "",
+        provincia:           c.provincia           ?? "",
         pais:                c.pais                ?? "",
         sitio_web:           c.sitio_web           ?? "",
         instagram:           c.instagram           ?? "",
@@ -630,6 +632,7 @@ export default function ClienteDetailPage() {
         email_secundario:    form.email_secundario.trim()    || undefined,
         direccion:           form.direccion.trim()           || undefined,
         ciudad:              form.ciudad.trim().toUpperCase()  || undefined,
+        provincia:           form.provincia.trim().toUpperCase() || undefined,
         pais:                form.pais.trim().toUpperCase()    || undefined,
         sitio_web:           form.sitio_web.trim()           || undefined,
         instagram:           form.instagram.trim()           || undefined,
@@ -1543,10 +1546,14 @@ export default function ClienteDetailPage() {
                   <input type="text" name="direccion" value={form.direccion} onChange={handleChange} className={inputClass} />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className={labelClass}>Ciudad</label>
                     <input type="text" name="ciudad" value={form.ciudad} onChange={handleChange} className={`${inputClass} uppercase`} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Provincia</label>
+                    <input type="text" name="provincia" value={form.provincia} onChange={handleChange} className={`${inputClass} uppercase`} />
                   </div>
                   <div>
                     <label className={labelClass}>País</label>

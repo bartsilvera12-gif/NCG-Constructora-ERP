@@ -67,6 +67,7 @@ function NuevoClienteForm() {
     email_secundario:    "",
     direccion:           "",
     ciudad:              "",
+    provincia:           "",
     pais:                "ESPAÑA",
     sitio_web:           "",
     instagram:           "",
@@ -194,7 +195,7 @@ function NuevoClienteForm() {
     return () => { cancelled = true; };
   }, [fromCrmId]);
 
-  const upper = ["empresa", "nombre_contacto", "ciudad", "pais", "vendedor_asignado", "condicion_pago", "direccion", "sifen_codigo_pais"];
+  const upper = ["empresa", "nombre_contacto", "ciudad", "provincia", "pais", "vendedor_asignado", "condicion_pago", "direccion", "sifen_codigo_pais"];
   const lower = ["email", "email_secundario"];
 
   function handleChange(
@@ -315,6 +316,7 @@ function NuevoClienteForm() {
       email: form.email.trim() || undefined,
       direccion: form.direccion.trim() || undefined,
       ciudad: form.ciudad.trim().toUpperCase() || undefined,
+      provincia: form.provincia.trim().toUpperCase() || undefined,
       pais: form.pais.trim().toUpperCase() || undefined,
       condicion_pago: form.condicion_pago.trim().toUpperCase() || undefined,
       moneda_preferida: form.moneda_preferida,
@@ -573,13 +575,24 @@ function NuevoClienteForm() {
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
                 <label className={labelClass}>Ciudad</label>
                 <input
                   type="text"
                   name="ciudad"
                   value={form.ciudad}
+                  onChange={handleChange}
+                  placeholder="MADRID"
+                  className={`${inputClass} uppercase`}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Provincia</label>
+                <input
+                  type="text"
+                  name="provincia"
+                  value={form.provincia}
                   onChange={handleChange}
                   placeholder="MADRID"
                   className={`${inputClass} uppercase`}

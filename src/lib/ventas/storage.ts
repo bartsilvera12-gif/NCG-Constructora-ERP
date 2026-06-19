@@ -51,7 +51,10 @@ export async function saveVenta(
   pagoDetalle?: PagoDetalleVenta | null,
   opts?: { tipoDocumento?: "venta" | "presupuesto"; presupuestoMeta?: Record<string, unknown> | null; clienteId?: string | null }
 ): Promise<ResultadoGuardarVenta> {
-  if (!datos.items || datos.items.length === 0) {
+  // Para presupuestos permitimos items vacíos (draft de cotización).
+  // Para ventas reales seguimos exigiendo al menos un producto.
+  const esPresupuesto = opts?.tipoDocumento === "presupuesto";
+  if (!esPresupuesto && (!datos.items || datos.items.length === 0)) {
     return { success: false, error: "La venta debe tener al menos un producto." };
   }
 

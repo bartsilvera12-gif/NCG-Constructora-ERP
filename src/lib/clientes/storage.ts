@@ -31,6 +31,7 @@ interface SupabaseRow {
   email_secundario:   string | null;
   direccion:          string | null;
   ciudad:             string | null;
+  provincia:          string | null;
   pais:               string | null;
   sifen_receptor_extranjero?: boolean | null;
   sifen_codigo_pais?: string | null;
@@ -93,6 +94,7 @@ function rowToCliente(row: SupabaseRow): Cliente {
     email_secundario:    row.email_secundario ?? undefined,
     direccion:           row.direccion ?? undefined,
     ciudad:              row.ciudad ?? undefined,
+    provincia:           row.provincia ?? undefined,
     pais:                row.pais ?? undefined,
     sitio_web:           row.sitio_web ?? undefined,
     instagram:           row.instagram ?? undefined,
@@ -278,6 +280,7 @@ export async function saveCliente(datos: NuevoClienteData): Promise<Cliente | nu
     email_secundario:   datos.email_secundario ?? null,
     direccion:          datos.direccion ?? null,
     ciudad:             datos.ciudad ?? null,
+    provincia:          datos.provincia ?? null,
     pais:               datos.pais ?? null,
     sitio_web:          datos.sitio_web ?? null,
     instagram:          datos.instagram ?? null,
@@ -360,6 +363,7 @@ export function construirPatchActualizacionCliente(datos: ActualizarClienteInput
   if (datos.email_secundario !== undefined) patch.email_secundario = datos.email_secundario ?? null;
   if (datos.direccion !== undefined) patch.direccion = datos.direccion ?? null;
   if (datos.ciudad !== undefined) patch.ciudad = datos.ciudad ?? null;
+  if (datos.provincia !== undefined) patch.provincia = datos.provincia ?? null;
   if (datos.pais !== undefined) patch.pais = datos.pais ?? null;
   if (datos.sifen_receptor_extranjero !== undefined) {
     patch.sifen_receptor_extranjero = Boolean(datos.sifen_receptor_extranjero);

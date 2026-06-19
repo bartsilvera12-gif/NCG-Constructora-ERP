@@ -52,6 +52,11 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
   const [preview, setPreview] = useState<Archivo | null>(null);
   const [borrandoId, setBorrandoId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+
+  const MAX_IMAGENES = 5;
+  const cantImagenes = archivos.filter((a) => esImagen(a.mime_type)).length;
+  const limiteAlcanzado = cantImagenes >= MAX_IMAGENES;
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -144,24 +149,53 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
           </svg>
           <p className="text-sm text-slate-700">
-            Arrastrá tus fotos o documentos acá, o
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              disabled={subiendo}
-              className="ml-1 font-semibold text-[#3F8E91] hover:text-[#2F6F72] underline disabled:opacity-50"
-            >
-              elegí archivos
-            </button>
+            Arrastrá tus fotos o documentos acá, o usá los botones de abajo.
           </p>
           <p className="text-xs text-slate-500">
             JPG, PNG, WebP, GIF, HEIC, PDF, Word, Excel, TXT, CSV — hasta 25 MB cada uno.
           </p>
+          <p className={`text-xs ${limiteAlcanzado ? "text-amber-600 font-semibold" : "text-slate-500"}`}>
+            Imágenes: {cantImagenes}/{MAX_IMAGENES}{limiteAlcanzado ? " · límite alcanzado" : ""}
+          </p>
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={subiendo}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.338-2.32 5.75 5.75 0 0 1 1.011 11.094" />
+              </svg>
+              Subir archivo
+            </button>
+            <button
+              type="button"
+              onClick={() => cameraRef.current?.click()}
+              disabled={subiendo || limiteAlcanzado}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              title={limiteAlcanzado ? "Límite de 5 imágenes alcanzado" : "Tomar foto con la cámara"}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" />
+              </svg>
+              Tomar foto
+            </button>
+          </div>
           <input
             ref={inputRef}
             type="file"
             multiple
             accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+            className="hidden"
+            onChange={(e) => { if (e.target.files) void subir(e.target.files); e.target.value = ""; }}
+          />
+          <input
+            ref={cameraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
             className="hidden"
             onChange={(e) => { if (e.target.files) void subir(e.target.files); e.target.value = ""; }}
           />

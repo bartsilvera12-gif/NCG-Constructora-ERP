@@ -13,6 +13,9 @@ import {
   signProyectoArchivo,
 } from "@/lib/proyectos/archivos-storage";
 
+const MAX_IMAGENES_POR_PROYECTO = 5;
+const esImagenMime = (m: string | null | undefined) => !!m && m.startsWith("image/");
+
 /**
  * Archivos / fotos por proyecto.
  *
@@ -112,6 +115,16 @@ export async function POST(request: NextRequest, ctxParams: { params: Promise<{ 
       // Si el bucket ya existe y solo falla por permisos, igual seguimos.
     }
 
+    // Conteo actual de imágenes para aplicar el límite por proyecto.
+    const imgCountQ = await supabase
+      .from("proyecto_archivos")
+      .select("id, mime_type")
+      .eq("empresa_id", empresaId)
+      .eq("proyecto_id", proyectoId);
+    let imagenesExistentes = (imgCountQ.data ?? []).filter((r: { mime_type: string | null }) =>
+      esImagenMime(r.mime_type)
+    ).length;
+
     const errores: string[] = [];
     const creados: Array<Record<string, unknown>> = [];
 
@@ -124,6 +137,13 @@ export async function POST(request: NextRequest, ctxParams: { params: Promise<{ 
         const mb = (MAX_ARCHIVO_BYTES / 1024 / 1024).toFixed(0);
         errores.push(`"${file.name}": archivo demasiado grande (máx. ${mb} MB).`);
         continue;
+      }
+      if (esImagenMime(file.type)) {
+        if (imagenesExistentes >= MAX_IMAGENES_POR_PROYECTO) {
+          errores.push(`"${file.name}": se alcanzó el límite de ${MAX_IMAGENES_POR_PROYECTO} imágenes por proyecto.`);
+          continue;
+        }
+        imagenesExistentes += 1;
       }
 
       // 1) Insertar fila para reservar el id; el path usa ese id para evitar

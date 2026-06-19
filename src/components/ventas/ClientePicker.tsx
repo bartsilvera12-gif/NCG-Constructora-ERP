@@ -153,6 +153,23 @@ export default function ClientePicker({
     setOpen(false);
   }
 
+  // En draftMode no abrimos modal: emitimos directamente un draft con el
+  // nombre tipeado. Los demas campos los completa el form del presupuesto.
+  function crearDraftDirecto() {
+    const txt = busqueda.trim();
+    if (!txt) return;
+    const draft: ClienteRow = {
+      id: "",
+      empresa: null,
+      nombre_contacto: txt,
+      telefono: null,
+      email: null,
+      direccion: null,
+      ciudad: null,
+    };
+    elegir(draft, true);
+  }
+
   function handleChange(v: string) {
     setBusqueda(v);
     setOpen(true);
@@ -237,11 +254,15 @@ export default function ClientePicker({
           {q && !hayMatchExacto && (
             <button
               type="button"
-              onMouseDown={(e) => { e.preventDefault(); abrirCreacion(); }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                if (draftMode) crearDraftDirecto();
+                else abrirCreacion();
+              }}
               className="block w-full border-t border-slate-100 bg-[#E5F4F4] px-3 py-2 text-left text-xs font-semibold text-[#3F8E91] hover:bg-[#D2EBEB]"
             >
               {draftMode
-                ? `+ Cargar contacto «${busqueda.trim()}» (se crea al aprobar)`
+                ? `+ Usar «${busqueda.trim()}» como contacto nuevo`
                 : `+ Crear cliente «${busqueda.trim()}»`}
             </button>
           )}

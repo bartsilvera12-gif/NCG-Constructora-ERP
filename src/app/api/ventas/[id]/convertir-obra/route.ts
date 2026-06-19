@@ -285,6 +285,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           typeof meta.cliente_direccion === "string" ? meta.cliente_direccion.trim() : "";
         const draftCiudad =
           typeof meta.cliente_zona === "string" ? meta.cliente_zona.trim() : "";
+        const draftProvincia =
+          typeof meta.cliente_provincia === "string" ? meta.cliente_provincia.trim() : "";
+        const draftRuc =
+          typeof meta.cliente_ruc === "string" ? meta.cliente_ruc.trim() : "";
 
         const { data: nuevoCli, error: eCli } = await ctx.supabase
           .from("clientes")
@@ -292,11 +296,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             empresa_id: empresaId,
             tipo_cliente: draftEmpresa ? "empresa" : "persona",
             nombre_contacto: draftNombre,
+            nombre: draftNombre,
             empresa: draftEmpresa || null,
+            ruc: draftRuc || null,
             telefono: draftTel || null,
             email: draftEmail || null,
             direccion: draftDireccion || null,
             ciudad: draftCiudad || null,
+            provincia: draftProvincia || null,
             pais: "ESPAÑA",
             moneda_preferida: "EUR",
             estado: "activo",

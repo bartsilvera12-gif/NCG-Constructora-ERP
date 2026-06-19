@@ -82,6 +82,7 @@ export async function apiCreateCliente(data: {
   email?: string;
   direccion?: string;
   ciudad?: string;
+  provincia?: string;
   pais?: string;
   condicion_pago?: string;
   moneda_preferida?: string;

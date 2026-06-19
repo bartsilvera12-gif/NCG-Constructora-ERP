@@ -39,6 +39,7 @@ export interface Cliente {
 
   direccion?:          string;
   ciudad?:             string;
+  provincia?:          string;
   pais?:               string;
 
   sitio_web?:          string;

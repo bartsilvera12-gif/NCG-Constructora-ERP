@@ -22,8 +22,14 @@ function asItems(body: unknown, esPresupuesto: boolean): CreateVentaItemInput[] 
   for (const x of raw) {
     if (!x || typeof x !== "object") return null;
     const r = x as Record<string, unknown>;
-    const tipoIva = r.tipo_iva;
-    if (tipoIva !== "EXENTA" && tipoIva !== "4%" && tipoIva !== "5%" && tipoIva !== "10%" && tipoIva !== "21%") return null;
+    // Normalizamos tipo_iva: si llega vacío o sin "%" lo casteamos al 21% (default ES).
+    const rawIva = typeof r.tipo_iva === "string" ? r.tipo_iva.trim().toUpperCase() : "";
+    const tipoIva: "EXENTA" | "4%" | "5%" | "10%" | "21%" =
+      rawIva === "EXENTA" ? "EXENTA"
+      : rawIva === "4%" || rawIva === "4" ? "4%"
+      : rawIva === "5%" || rawIva === "5" ? "5%"
+      : rawIva === "10%" || rawIva === "10" ? "10%"
+      : "21%";
     const tp = r.tipo_precio;
     const tipoPrecio: "minorista" | "mayorista" | "costo" =
       tp === "mayorista" || tp === "costo" ? tp : "minorista";

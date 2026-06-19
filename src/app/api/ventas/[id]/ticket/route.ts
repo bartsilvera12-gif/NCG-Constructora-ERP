@@ -378,6 +378,7 @@ interface ClienteLite {
   email: string | null;
   direccion: string | null;
   ciudad: string | null;
+  provincia: string | null;
   ruc: string | null;
 }
 
@@ -488,7 +489,7 @@ function renderPresupuesto(opts: {
   const clienteNombre = empresa ?? contacto ?? "—";
   const clienteDir = cliente?.direccion ?? metaStr(meta, "cliente_direccion") ?? "";
   const clienteCiudad = cliente?.ciudad ?? metaStr(meta, "cliente_zona") ?? "";
-  const clienteProvincia = metaStr(meta, "cliente_provincia") ?? "";
+  const clienteProvincia = cliente?.provincia ?? metaStr(meta, "cliente_provincia") ?? "";
   const clienteRuc = cliente?.ruc ?? metaStr(meta, "cliente_ruc") ?? "";
 
   // Cálculo: precios en BD incluyen IVA. Derivamos base imponible por línea
@@ -853,7 +854,7 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
     if (venta.cliente_id) {
       const cQ = await ctx.supabase
         .from("clientes")
-        .select("empresa, nombre_contacto, telefono, email, direccion, ciudad, ruc")
+        .select("empresa, nombre_contacto, telefono, email, direccion, ciudad, provincia, ruc")
         .eq("id", venta.cliente_id)
         .eq("empresa_id", empresaId)
         .maybeSingle();
