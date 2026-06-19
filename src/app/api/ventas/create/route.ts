@@ -13,6 +13,13 @@ const TIPO_PARTIDA_OK = new Set([
   "alquiler_equipo", "retiro_escombros", "seguridad_andamio", "limpieza_final",
   "otro",
 ]);
+// Tipos del catálogo que la CHECK constraint vieja de la BD aún no acepta.
+// Hasta correr la migración 20260619200000, los mapeamos a "otro" para no
+// romper el insert. Una vez aplicada la migración esta lista puede quedar
+// vacía (no rompe nada dejarla).
+const TIPO_PARTIDA_LEGACY_FALLBACK = new Set([
+  "alquiler_equipo", "retiro_escombros", "seguridad_andamio", "limpieza_final",
+]);
 
 type ItemsErr = { ok: false; error: string };
 type ItemsOk = { ok: true; items: CreateVentaItemInput[] };
@@ -40,7 +47,9 @@ function asItems(body: unknown, esPresupuesto: boolean): ItemsOk | ItemsErr {
     const tipoPrecio: "minorista" | "mayorista" | "costo" =
       tp === "mayorista" || tp === "costo" ? tp : "minorista";
     const tipoPartidaRaw = typeof r.tipo_partida === "string" ? r.tipo_partida : "producto";
-    const tipo_partida = TIPO_PARTIDA_OK.has(tipoPartidaRaw) ? tipoPartidaRaw : "producto";
+    let tipo_partida = TIPO_PARTIDA_OK.has(tipoPartidaRaw) ? tipoPartidaRaw : "producto";
+    // Workaround: tipos nuevos del form aún no aceptados por la CHECK de la BD.
+    if (TIPO_PARTIDA_LEGACY_FALLBACK.has(tipo_partida)) tipo_partida = "otro";
     const descripcion = typeof r.descripcion === "string" ? r.descripcion.trim() : "";
     out.push({
       producto_id: String(r.producto_id ?? ""),
