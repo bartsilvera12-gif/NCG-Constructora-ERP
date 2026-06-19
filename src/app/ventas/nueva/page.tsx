@@ -1496,6 +1496,7 @@ function PartidaManualModal({ onClose, onAgregar }: { onClose: () => void; onAgr
 
 const IMG_MIME_OK = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic"]);
 const IMG_MAX = 15 * 1024 * 1024;
+const IMG_MAX_CANT = 5;
 
 function FotosAdjuntasSection({
   files, setFiles, err, setErr,
@@ -1517,14 +1518,22 @@ function FotosAdjuntasSection({
       if (f.size > IMG_MAX) { errs.push(`"${f.name}": > 15 MB`); return; }
       validos.push(f);
     });
-    if (validos.length > 0) setFiles((prev) => [...prev, ...validos]);
+    if (validos.length > 0) {
+      setFiles((prev) => {
+        const disponibles = Math.max(0, IMG_MAX_CANT - prev.length);
+        const aceptados = validos.slice(0, disponibles);
+        const descartados = validos.length - aceptados.length;
+        if (descartados > 0) errs.push(`Límite de ${IMG_MAX_CANT} fotos: se descartaron ${descartados}.`);
+        return [...prev, ...aceptados];
+      });
+    }
     setErr(errs.length > 0 ? errs.join(" · ") : null);
   };
 
   return (
     <PresupSection titulo="Fotos adjuntas" defaultOpen={false}>
       <p className="text-xs text-slate-500 mb-3">
-        Imágenes que aparecerán al final del PDF (una por página). JPG, PNG, WEBP, GIF, HEIC — hasta 15 MB c/u.
+        Imágenes que aparecerán al final del PDF, en grilla. JPG, PNG, WEBP, GIF, HEIC — hasta 15 MB c/u — máximo {IMG_MAX_CANT}. Quedan {Math.max(0, IMG_MAX_CANT - files.length)}.
       </p>
       <div className="rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center">
         <p className="text-sm text-slate-600 mb-2">
@@ -1532,11 +1541,13 @@ function FotosAdjuntasSection({
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2">
           <button type="button" onClick={() => inputRef.current?.click()}
-            className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            disabled={files.length >= IMG_MAX_CANT}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
             Subir imágenes
           </button>
           <button type="button" onClick={() => cameraRef.current?.click()}
-            className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            disabled={files.length >= IMG_MAX_CANT}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
             Tomar foto
           </button>
         </div>

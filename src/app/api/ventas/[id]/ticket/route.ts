@@ -607,24 +607,25 @@ function renderPresupuesto(opts: {
 
   /* Tabla totales abajo */
   .totales { display: grid; grid-template-columns: 1.2fr 1.5fr 1.3fr 1.3fr; gap: 0; margin-top: 14px; border: 1px solid var(--line); }
-  .totales .cell { padding: 8px 10px; border-right: 1px solid var(--line); }
-  .totales .cell:last-child { border-right: none; }
+  .totales .lbl, .totales .val { border-right: 1px solid var(--line); }
+  .totales .lbl:nth-child(4), .totales .val:nth-child(8) { border-right: none; }
   .totales .lbl { background: var(--soft); color: var(--accent); font-weight: 700; text-align: center; font-size: 11px; padding: 7px 10px; border-bottom: 1px solid var(--line); }
-  .totales .row2 { display: contents; }
   .totales .val { text-align: center; font-variant-numeric: tabular-nums; font-size: 11.5px; padding: 10px; }
   .totales .val.total { font-weight: 800; font-size: 13px; color: var(--ink); }
   .totales .iva-pct, .totales .irpf-pct { display: inline-block; min-width: 38px; text-align: left; }
-  .totales .iva-cell, .totales .irpf-cell { display: flex; justify-content: space-between; gap: 8px; }
+  .totales .iva-cell, .totales .irpf-cell { display: flex; justify-content: space-between; gap: 8px; padding-left: 14px; padding-right: 14px; }
 
   .forma-pago-box { margin-top: 16px; padding: 8px 12px; border: 1px solid var(--line); font-size: 11px; color: var(--ink); }
 
   .ficha-link { margin-top: 3px; font-size: 9.5px; color: var(--muted); }
   .ficha-link a { color: var(--accent); text-decoration: underline; }
 
-  .img-sheet { background: #fff; width: 210mm; min-height: 297mm; margin: 14mm auto; padding: 14mm; box-shadow: 0 4px 24px rgba(15,23,42,.08); page-break-before: always; break-before: page; display: flex; flex-direction: column; }
-  .img-sheet .img-wrap { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  .img-sheet img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
-  .img-sheet .caption { margin-top: 10px; font-size: 10.5px; color: var(--muted); text-align: center; }
+  .img-sheet { background: #fff; width: 210mm; min-height: 297mm; margin: 14mm auto; padding: 14mm; box-shadow: 0 4px 24px rgba(15,23,42,.08); page-break-before: always; break-before: page; }
+  .img-sheet h2 { font-size: 13px; font-weight: 700; color: var(--accent); margin: 0 0 10px; letter-spacing: .5px; text-transform: uppercase; }
+  .img-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; }
+  .img-grid .cell { display: flex; flex-direction: column; align-items: center; }
+  .img-grid .cell img { width: 100%; max-height: 120mm; object-fit: contain; border: 1px solid var(--line); display: block; background: #fafafa; }
+  .img-grid .cell .caption { margin-top: 4px; font-size: 9.5px; color: var(--muted); text-align: center; }
   @media print {
     .img-sheet { box-shadow: none; margin: 0; padding: 12mm; width: 100%; min-height: 100vh; }
   }
@@ -705,11 +706,17 @@ function renderPresupuesto(opts: {
     </div>` : ""}
   </div>
 
-  ${imagenes.map((img) => `
+  ${imagenes.length > 0 ? `
   <div class="img-sheet">
-    <div class="img-wrap"><img src="${escapeHtml(img.url)}" alt="${escapeHtml(img.nombre)}" /></div>
-    ${img.nombre ? `<div class="caption">${escapeHtml(img.nombre)}</div>` : ""}
-  </div>`).join("")}
+    <h2>Imágenes adjuntas</h2>
+    <div class="img-grid">
+      ${imagenes.map((img) => `
+        <div class="cell">
+          <img src="${escapeHtml(img.url)}" alt="${escapeHtml(img.nombre)}" />
+          ${img.nombre ? `<div class="caption">${escapeHtml(img.nombre)}</div>` : ""}
+        </div>`).join("")}
+    </div>
+  </div>` : ""}
 
   <div class="actions">
     <button type="button" onclick="window.print()">${escapeHtml(t.imprimir)}</button>
