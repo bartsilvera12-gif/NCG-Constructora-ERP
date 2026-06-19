@@ -378,14 +378,22 @@ function renderPresupuesto(opts: {
   const exclusiones = metaStr(meta, "exclusiones");
   const observacionesTec = metaStr(meta, "observaciones_tecnicas");
 
-  // Cliente: prioriza la entidad clientes; si no, cae a los strings del meta.
-  const clienteNombre =
-    (cliente?.empresa ?? cliente?.nombre_contacto) ??
-    metaStr(meta, "cliente_contacto") ?? "—";
+  // Cliente: combina entidad clientes + meta. Cualquiera de las dos fuentes
+  // puede traer cada campo; el catálogo prima, y caemos al meta cuando falta.
+  const empresaDb = cliente?.empresa?.trim() || null;
+  const contactoDb = cliente?.nombre_contacto?.trim() || null;
+  const empresaMeta = metaStr(meta, "cliente_empresa");
+  const contactoMeta = metaStr(meta, "cliente_contacto");
+  const empresa = empresaDb ?? empresaMeta;
+  const contacto = contactoDb ?? contactoMeta;
+  const clienteNombre = empresa ?? contacto ?? "—";
+  // Si hay empresa Y contacto distintos, mostramos al contacto como segunda línea.
+  const clienteContactoSec = empresa && contacto && contacto !== empresa ? contacto : null;
   const clienteTel = cliente?.telefono ?? metaStr(meta, "cliente_telefono") ?? "";
   const clienteEmail = cliente?.email ?? metaStr(meta, "cliente_email") ?? "";
-  const clienteDir = cliente?.direccion ?? "";
-  const clienteRuc = cliente?.ruc ?? "";
+  const clienteDir = cliente?.direccion ?? metaStr(meta, "cliente_direccion") ?? "";
+  const clienteCiudad = cliente?.ciudad ?? metaStr(meta, "cliente_zona") ?? "";
+  const clienteRuc = cliente?.ruc ?? metaStr(meta, "cliente_ruc") ?? "";
 
   // Validez calculada desde fecha del presupuesto.
   let validoHasta = "";
@@ -526,10 +534,11 @@ function renderPresupuesto(opts: {
       <div class="card">
         <h3>${escapeHtml(t.cliente)}</h3>
         <div class="line"><strong>${escapeHtml(clienteNombre)}</strong></div>
+        ${clienteContactoSec ? `<div class="line muted">${escapeHtml(clienteContactoSec)}</div>` : ""}
         ${clienteRuc ? `<div class="line muted">${escapeHtml(t.cif)}: ${escapeHtml(clienteRuc)}</div>` : ""}
         ${clienteTel ? `<div class="line muted">${escapeHtml(t.tel)}: ${escapeHtml(clienteTel)}</div>` : ""}
         ${clienteEmail ? `<div class="line muted">${escapeHtml(clienteEmail)}</div>` : ""}
-        ${clienteDir ? `<div class="line muted">${escapeHtml(clienteDir)}</div>` : ""}
+        ${clienteDir ? `<div class="line muted">${escapeHtml(clienteDir)}${clienteCiudad ? ", " + escapeHtml(clienteCiudad) : ""}</div>` : (clienteCiudad ? `<div class="line muted">${escapeHtml(clienteCiudad)}</div>` : "")}
       </div>
       <div class="card">
         <h3>${escapeHtml(t.ubicacion)}</h3>
