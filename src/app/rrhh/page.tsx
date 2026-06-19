@@ -7,7 +7,7 @@ type Seccion = { titulo: string; descripcion: string; href?: string };
 
 const SECCIONES: Seccion[] = [
   { titulo: "Empleados", descripcion: "Alta de personal, cargos, salarios, tipo(s) de empleado y datos de chofer.", href: "/rrhh/empleados" },
-  { titulo: "Personal por obra", descripcion: "Asignación de empleados a obras desde la pestaña Personal de cada obra.", href: "/dashboard/proyectos" },
+  { titulo: "Personal por obra", descripcion: "Listado consolidado: por obra (con sus empleados) y por empleado (en qué obras está).", href: "/reportes/personal-por-obra" },
   { titulo: "Control horario", descripcion: "Fichajes de entrada y salida diarios. Calcula horas automáticamente.", href: "/rrhh/control-horario" },
   { titulo: "Vacaciones", descripcion: "Solicitudes y aprobación de vacaciones por empleado.", href: "/rrhh/vacaciones" },
   { titulo: "Nómina", descripcion: "Liquidación mensual: salario base + costo de horas en obras del mes.", href: "/rrhh/nomina" },
