@@ -90,6 +90,8 @@ export default function NuevaVentaPage() {
 
   // ── Estado global ──────────────────────────────────────────────────────────
   const [items, setItems]           = useState<LineaVenta[]>([]);
+  const [imagenesAdjuntas, setImagenesAdjuntas] = useState<File[]>([]);
+  const [errorImagenes, setErrorImagenes] = useState<string | null>(null);
   const [errorVenta, setErrorVenta] = useState<string | null>(null);
 
   // ── Datos de la obra (solo presupuesto) ──────────────────────────────────
@@ -303,6 +305,19 @@ export default function NuevaVentaPage() {
       }
     );
     if (resultado.success) {
+      // Sube las imágenes adjuntas al presupuesto/venta. Falla silencioso por
+      // imagen para no bloquear el flujo si una falla.
+      if (conBriefObra && imagenesAdjuntas.length > 0) {
+        try {
+          const fd = new FormData();
+          imagenesAdjuntas.forEach((f) => fd.append("file", f));
+          await fetch(`/api/ventas/${resultado.venta.id}/imagenes`, {
+            method: "POST",
+            body: fd,
+            credentials: "include",
+          });
+        } catch {}
+      }
       if (!esPresupuesto) {
         // Solo ventas reales generan ticket/comandas para imprimir.
         try {
@@ -409,6 +424,15 @@ export default function NuevaVentaPage() {
 
       {conBriefObra && (
         <DatosObraSection meta={obraMeta} setMeta={setObraMeta} esPresupuesto={esPresupuesto} />
+      )}
+
+      {conBriefObra && (
+        <FotosAdjuntasSection
+          files={imagenesAdjuntas}
+          setFiles={setImagenesAdjuntas}
+          err={errorImagenes}
+          setErr={setErrorImagenes}
+        />
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6 max-w-7xl">
@@ -1467,5 +1491,101 @@ function PartidaManualModal({ onClose, onAgregar }: { onClose: () => void; onAgr
         </form>
       </div>
     </div>
+  );
+}
+
+const IMG_MIME_OK = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic"]);
+const IMG_MAX = 15 * 1024 * 1024;
+
+function FotosAdjuntasSection({
+  files, setFiles, err, setErr,
+}: {
+  files: File[];
+  setFiles: React.Dispatch<React.SetStateAction<File[]>>;
+  err: string | null;
+  setErr: React.Dispatch<React.SetStateAction<string | null>>;
+}) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const cameraRef = React.useRef<HTMLInputElement>(null);
+
+  const agregar = (selected: FileList | null) => {
+    if (!selected || selected.length === 0) return;
+    const validos: File[] = [];
+    const errs: string[] = [];
+    Array.from(selected).forEach((f) => {
+      if (!IMG_MIME_OK.has(f.type)) { errs.push(`"${f.name}": formato no permitido`); return; }
+      if (f.size > IMG_MAX) { errs.push(`"${f.name}": > 15 MB`); return; }
+      validos.push(f);
+    });
+    if (validos.length > 0) setFiles((prev) => [...prev, ...validos]);
+    setErr(errs.length > 0 ? errs.join(" · ") : null);
+  };
+
+  return (
+    <PresupSection titulo="Fotos adjuntas" defaultOpen={false}>
+      <p className="text-xs text-slate-500 mb-3">
+        Imágenes que aparecerán al final del PDF (una por página). JPG, PNG, WEBP, GIF, HEIC — hasta 15 MB c/u.
+      </p>
+      <div className="rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center">
+        <p className="text-sm text-slate-600 mb-2">
+          Arrastrá imágenes acá o usá los botones de abajo.
+        </p>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <button type="button" onClick={() => inputRef.current?.click()}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            Subir imágenes
+          </button>
+          <button type="button" onClick={() => cameraRef.current?.click()}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            Tomar foto
+          </button>
+        </div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif,image/heic"
+          multiple
+          className="hidden"
+          onChange={(e) => { agregar(e.target.files); e.target.value = ""; }}
+        />
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => { agregar(e.target.files); e.target.value = ""; }}
+        />
+      </div>
+
+      {err && <p className="mt-2 text-xs text-rose-600">{err}</p>}
+
+      {files.length > 0 && (
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+          {files.map((f, i) => {
+            const url = URL.createObjectURL(f);
+            return (
+              <div key={`${f.name}-${i}`} className="relative group rounded-lg border border-slate-200 overflow-hidden bg-white">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt={f.name} className="aspect-[4/3] w-full object-cover" onLoad={() => URL.revokeObjectURL(url)} />
+                <div className="p-1.5">
+                  <p className="text-[10px] text-slate-600 truncate" title={f.name}>{f.name}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                  className="absolute top-1 right-1 rounded bg-white/90 text-rose-600 text-[10px] px-1.5 py-0.5 shadow opacity-0 group-hover:opacity-100"
+                >
+                  Quitar
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {files.length > 0 && (
+        <p className="mt-2 text-xs text-slate-500">{files.length} imagen{files.length === 1 ? "" : "es"} se subirá{files.length === 1 ? "" : "n"} al guardar.</p>
+      )}
+    </PresupSection>
   );
 }
