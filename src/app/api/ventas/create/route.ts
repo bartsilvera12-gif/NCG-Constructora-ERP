@@ -8,7 +8,11 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import type { Venta, LineaVenta } from "@/lib/ventas/types";
 
-const TIPO_PARTIDA_OK = new Set(["producto", "mano_obra", "servicio", "transporte", "otro"]);
+const TIPO_PARTIDA_OK = new Set([
+  "producto", "mano_obra", "servicio", "transporte",
+  "alquiler_equipo", "retiro_escombros", "seguridad_andamio", "limpieza_final",
+  "otro",
+]);
 
 type ItemsErr = { ok: false; error: string };
 type ItemsOk = { ok: true; items: CreateVentaItemInput[] };
