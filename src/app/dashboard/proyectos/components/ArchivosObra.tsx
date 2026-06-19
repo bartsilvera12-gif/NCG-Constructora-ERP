@@ -96,7 +96,11 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
     setErr(null);
     try {
       const fd = new FormData();
-      for (const f of arr) fd.append("file", f);
+      for (const f of arr) {
+        // Algunos navegadores (Brave/Chrome mobile en ciertos casos) no envían
+        // bien File creado desde Blob por canvas → mandamos blob+filename.
+        fd.append("file", f, f.name || "archivo");
+      }
       const r = await fetchWithSupabaseSession(`/api/proyectos/${projectId}/archivos`, {
         method: "POST",
         body: fd,
@@ -107,12 +111,13 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
         error?: string;
       };
       if (!r.ok || !j.success) {
-        setErr(j.error ?? "No se pudieron subir los archivos");
+        setErr(j.error ?? `No se pudieron subir los archivos (HTTP ${r.status}).`);
         return;
       }
       if (j.data?.errores?.length) setErr(j.data.errores.join(" "));
-      // Recargamos para tener URLs firmadas + orden por fecha consistente.
       await cargar();
+    } catch (e) {
+      setErr(`Error de red al subir: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setSubiendo(false);
     }
@@ -148,12 +153,17 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
 
   return (
     <div className="space-y-4">
+      {err && (
+        <div className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+          <strong>Error:</strong> {err}
+        </div>
+      )}
       {/* Zona de upload (file picker + drag&drop). */}
       <div
         onDragOver={(e) => { e.preventDefault(); setDragActivo(true); }}
         onDragLeave={() => setDragActivo(false)}
         onDrop={onDrop}
-        className={`rounded-xl border-2 border-dashed px-6 py-7 text-center transition-colors ${
+        className={`rounded-xl border-2 border-dashed px-4 py-5 text-center transition-colors sm:px-6 sm:py-7 ${
           dragActivo ? "border-[#4FAEB2] bg-[#E5F4F4]" : "border-slate-300 bg-slate-50"
         }`}
       >
@@ -223,12 +233,6 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
           )}
         </div>
       </div>
-
-      {err && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          {err}
-        </div>
-      )}
 
       {loading ? (
         <p className="text-sm text-slate-500">Cargando archivos…</p>
@@ -304,6 +308,10 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
             setCamOpen(false);
             void subir([file]);
           }}
+          onFallback={() => {
+            setCamOpen(false);
+            cameraRef.current?.click();
+          }}
         />
       )}
 
@@ -338,9 +346,11 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
 function CamaraModal({
   onClose,
   onCapture,
+  onFallback,
 }: {
   onClose: () => void;
   onCapture: (file: File) => void;
+  onFallback?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -442,13 +452,24 @@ function CamaraModal({
         {err ? (
           <div className="rounded-lg bg-white p-6 text-center">
             <p className="text-sm text-rose-600">{err}</p>
-            <button
-              type="button"
-              onClick={onClose}
-              className="mt-3 rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-            >
-              Cerrar
-            </button>
+            <div className="mt-3 flex items-center justify-center gap-2">
+              {onFallback ? (
+                <button
+                  type="button"
+                  onClick={onFallback}
+                  className="rounded-md bg-[#4FAEB2] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#3F8E91]"
+                >
+                  Usar cámara del sistema
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         ) : (
           <>

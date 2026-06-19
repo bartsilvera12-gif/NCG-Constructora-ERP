@@ -540,10 +540,8 @@ export default function Sidebar() {
         initial={false}
         animate={{ width: collapsed ? 80 : 260 }}
         transition={{ duration: 0.2 }}
-        className={`zentra-sidebar-bg relative flex h-svh min-h-0 shrink-0 flex-col border-r border-[color:var(--zentra-sidebar-border)] lg:relative lg:translate-x-0 ${
-          mobileSidebarOpen
-            ? "fixed inset-y-0 left-0 z-50 translate-x-0 shadow-2xl transition-transform duration-200"
-            : "fixed inset-y-0 left-0 z-50 -translate-x-full lg:translate-x-0 transition-transform duration-200"
+        className={`zentra-sidebar-bg fixed inset-y-0 left-0 z-50 flex h-svh min-h-0 flex-col border-r border-[color:var(--zentra-sidebar-border)] transition-transform duration-200 lg:static lg:translate-x-0 lg:shrink-0 ${
+          mobileSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
         }`}
       >
       {/* Logo oficial ZENTRA (blanco sobre azul marca) */}

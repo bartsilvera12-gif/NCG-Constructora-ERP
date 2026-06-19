@@ -8,6 +8,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import SelectFromList from "@/components/inventario/SelectFromList";
 import CrearCategoriaModal, { type CategoriaCreada } from "@/components/inventario/CrearCategoriaModal";
 import CrearProveedorModal, { type ProveedorCreado } from "@/components/inventario/CrearProveedorModal";
+import FichaTecnicaField from "@/components/inventario/FichaTecnicaField";
 import { productoExiste, saveProducto } from "@/lib/inventario/storage";
 import { generarEan13 } from "@/lib/inventario/ean13";
 import type { MetodoValuacion } from "@/lib/inventario/types";
@@ -166,6 +167,7 @@ export default function NuevoProductoPage() {
   const [imagenFile, setImagenFile] = useState<File | null>(null);
   const [imagenPreview, setImagenPreview] = useState<string | null>(null);
   const [imagenError, setImagenError] = useState<string | null>(null);
+  const [fichaFile, setFichaFile] = useState<File | null>(null);
 
   const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp"];
   const MAX_IMG_BYTES = 5 * 1024 * 1024;
@@ -784,6 +786,12 @@ export default function NuevoProductoPage() {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Ficha técnica del producto (PDF) */}
+          <div>
+            <label className={labelClass}>Ficha técnica (PDF)</label>
+            <FichaTecnicaField onFileDeferred={setFichaFile} />
           </div>
 
           <div>
