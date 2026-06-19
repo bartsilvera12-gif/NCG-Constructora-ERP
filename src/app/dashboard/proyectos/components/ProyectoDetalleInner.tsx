@@ -70,7 +70,7 @@ const TAB_LABELS: Record<TabId, string> = {
  * trazabilidad/historial financiero) viven en /control-obra/[id].
  * Comentarios se muestra como "Notas".
  */
-const TAB_IDS_OBRA: readonly TabId[] = ["resumen", "datos", "personal", "comentarios"];
+const TAB_IDS_OBRA: readonly TabId[] = ["resumen", "datos", "personal", "comentarios", "archivos"];
 
 function normalizeTab(raw: string | null | undefined): TabId {
   if (!raw) return "resumen";
