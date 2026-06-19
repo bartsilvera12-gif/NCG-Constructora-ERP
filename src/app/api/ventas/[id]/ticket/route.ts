@@ -24,6 +24,27 @@ import { getTenantSupabaseFromAuth } from "@/lib/supabase/tenant-api";
  */
 const NEGOCIO = (process.env.NEURA_CLIENT_NAME?.trim() || "Negocio").toUpperCase();
 
+// Datos del emisor por defecto (fallback si no hay fila en presupuesto_emisor_config).
+const EMISOR_DEFAULT: Emisor = {
+  nombre: process.env.NEURA_CLIENT_NAME?.trim() || "NCG Constructora",
+  direccion: "",
+  cp_ciudad: "",
+  provincia: "",
+  nif: "",
+  tel: "",
+  email: "",
+};
+
+interface Emisor {
+  nombre: string;
+  direccion: string;
+  cp_ciudad: string;
+  provincia: string;
+  nif: string;
+  tel: string;
+  email: string;
+}
+
 // ── Clasificación PIZZERÍA / PLANCHA ───────────────────────────────────────
 // Primary: categoría hija del producto. Fallback: prefijo de SKU.
 
@@ -97,6 +118,21 @@ const LOCALE_BY_LANG: Record<Lang, string> = {
 };
 const I18N: Record<Lang, Record<string, string>> = {
   es: {
+    num_presupuesto: "Presupuesto número",
+    fecha_lbl: "Fecha",
+    hoja_lbl: "Hoja nº",
+    hoja_de: "de",
+    col_desc: "DESCRIPCIÓN",
+    col_unid: "UNIDADES",
+    col_precio: "PRECIO",
+    col_total: "TOTAL",
+    box_base: "BASE IMPONIBLE",
+    box_iva: "I.V.A.",
+    box_irpf: "I.R.P.F.",
+    box_total: "TOTAL",
+    nif_lbl: "N.I.F.",
+    tel_lbl: "Tfno.",
+    email_lbl: "E-mail.",
     subtitle: "Presupuesto de obra",
     tag: "PRESUPUESTO",
     emitido: "Emitido",
@@ -130,6 +166,21 @@ const I18N: Record<Lang, Record<string, string>> = {
     footer_legal: "Documento interno — no constituye factura. Al aceptar este presupuesto se generará la obra correspondiente.",
   },
   en: {
+    num_presupuesto: "Quote number",
+    fecha_lbl: "Date",
+    hoja_lbl: "Page",
+    hoja_de: "of",
+    col_desc: "DESCRIPTION",
+    col_unid: "UNITS",
+    col_precio: "PRICE",
+    col_total: "TOTAL",
+    box_base: "TAXABLE BASE",
+    box_iva: "VAT",
+    box_irpf: "WHT",
+    box_total: "TOTAL",
+    nif_lbl: "Tax ID",
+    tel_lbl: "Phone",
+    email_lbl: "Email",
     subtitle: "Construction quote",
     tag: "QUOTE",
     emitido: "Issued",
@@ -163,6 +214,21 @@ const I18N: Record<Lang, Record<string, string>> = {
     footer_legal: "Internal document — not a tax invoice. Upon acceptance the corresponding project will be created.",
   },
   fr: {
+    num_presupuesto: "Devis numéro",
+    fecha_lbl: "Date",
+    hoja_lbl: "Page",
+    hoja_de: "sur",
+    col_desc: "DÉSIGNATION",
+    col_unid: "QUANTITÉ",
+    col_precio: "PRIX",
+    col_total: "TOTAL",
+    box_base: "BASE HT",
+    box_iva: "T.V.A.",
+    box_irpf: "RETENUE",
+    box_total: "TOTAL",
+    nif_lbl: "N° fiscal",
+    tel_lbl: "Tél.",
+    email_lbl: "E-mail",
     subtitle: "Devis de travaux",
     tag: "DEVIS",
     emitido: "Émis le",
@@ -196,6 +262,21 @@ const I18N: Record<Lang, Record<string, string>> = {
     footer_legal: "Document interne — ne constitue pas une facture. L'acceptation de ce devis entraînera la création du chantier correspondant.",
   },
   it: {
+    num_presupuesto: "Preventivo numero",
+    fecha_lbl: "Data",
+    hoja_lbl: "Pagina",
+    hoja_de: "di",
+    col_desc: "DESCRIZIONE",
+    col_unid: "UNITÀ",
+    col_precio: "PREZZO",
+    col_total: "TOTALE",
+    box_base: "IMPONIBILE",
+    box_iva: "I.V.A.",
+    box_irpf: "RIT.",
+    box_total: "TOTALE",
+    nif_lbl: "P. IVA",
+    tel_lbl: "Tel.",
+    email_lbl: "E-mail",
     subtitle: "Preventivo lavori",
     tag: "PREVENTIVO",
     emitido: "Emesso il",
@@ -351,26 +432,26 @@ function formatEurLang(v: number, lang: Lang): string {
   return `€ ${v.toLocaleString(LOCALE_BY_LANG[lang], { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 }
 
+// Formatea un número plano (sin símbolo) con el locale del idioma.
+function formatNumLang(v: number, lang: Lang): string {
+  return v.toLocaleString(LOCALE_BY_LANG[lang], { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function renderPresupuesto(opts: {
   venta: VentaRow;
   items: ItemRow[];
   cliente: ClienteLite | null;
   lang: Lang;
+  emisor: Emisor;
 }): string {
-  const { venta, items, cliente, lang } = opts;
+  const { venta, items, cliente, lang, emisor } = opts;
+  const EMISOR = emisor;
   const t = I18N[lang];
-  const fmt = (n: number) => formatEurLang(n, lang);
   const meta = venta.presupuesto_meta ?? {};
 
-  const tituloObra = metaStr(meta, "titulo_obra") ?? "Presupuesto de obra";
+  const tituloObra = metaStr(meta, "titulo_obra") ?? "";
   const descripcion = metaStr(meta, "descripcion") ?? "";
   const ubicacion = metaStr(meta, "ubicacion") ?? "";
-  const ciudadZona = metaStr(meta, "cliente_zona") ?? "";
-  const superficie = metaStr(meta, "superficie_m2");
-  const unidad = metaStr(meta, "unidad_principal") ?? "m²";
-  const fechaInicio = metaStr(meta, "fecha_inicio_estimada");
-  const plazoEstimado = metaStr(meta, "plazo_estimado");
-  const validezDias = metaNum(meta, "validez_dias") ?? 30;
   const formaPago = metaStr(meta, "forma_pago");
   const condiciones = metaStr(meta, "condiciones_servicio") ?? metaStr(meta, "condiciones");
   const garantiaMo = metaStr(meta, "garantia_mano_obra");
@@ -378,8 +459,7 @@ function renderPresupuesto(opts: {
   const exclusiones = metaStr(meta, "exclusiones");
   const observacionesTec = metaStr(meta, "observaciones_tecnicas");
 
-  // Cliente: combina entidad clientes + meta. Cualquiera de las dos fuentes
-  // puede traer cada campo; el catálogo prima, y caemos al meta cuando falta.
+  // Cliente: combina entidad clientes + meta.
   const empresaDb = cliente?.empresa?.trim() || null;
   const contactoDb = cliente?.nombre_contacto?.trim() || null;
   const empresaMeta = metaStr(meta, "cliente_empresa");
@@ -387,129 +467,135 @@ function renderPresupuesto(opts: {
   const empresa = empresaDb ?? empresaMeta;
   const contacto = contactoDb ?? contactoMeta;
   const clienteNombre = empresa ?? contacto ?? "—";
-  // Si hay empresa Y contacto distintos, mostramos al contacto como segunda línea.
-  const clienteContactoSec = empresa && contacto && contacto !== empresa ? contacto : null;
-  const clienteTel = cliente?.telefono ?? metaStr(meta, "cliente_telefono") ?? "";
-  const clienteEmail = cliente?.email ?? metaStr(meta, "cliente_email") ?? "";
   const clienteDir = cliente?.direccion ?? metaStr(meta, "cliente_direccion") ?? "";
   const clienteCiudad = cliente?.ciudad ?? metaStr(meta, "cliente_zona") ?? "";
+  const clienteProvincia = metaStr(meta, "cliente_provincia") ?? "";
   const clienteRuc = cliente?.ruc ?? metaStr(meta, "cliente_ruc") ?? "";
 
-  // Validez calculada desde fecha del presupuesto.
-  let validoHasta = "";
-  try {
-    const d = new Date(venta.fecha);
-    if (Number.isFinite(d.getTime())) {
-      d.setDate(d.getDate() + validezDias);
-      validoHasta = formatFechaCorta(d.toISOString(), lang);
-    }
-  } catch {}
-
-  // Filas de partidas.
-  const filasItems = items.map((it, idx) => {
+  // Cálculo: precios en BD incluyen IVA. Derivamos base imponible por línea
+  // para mostrar columnas PRECIO/TOTAL sin IVA según el formato tradicional ES.
+  let baseTotal = 0;
+  let ivaTotal = 0;
+  const tasasUsadas = new Set<number>();
+  const filasDatos = items.map((it) => {
     const cant = Number(it.cantidad);
-    const punit = Number(it.precio_venta);
-    const total = Number(it.total_linea);
+    const totalConIva = Number(it.total_linea);
     const tasa = tasaIva(it.tipo_iva ?? null);
-    const ivaInfo = total * tasa;
-    const nombre = it.producto_nombre || it.descripcion || "—";
-    const desc = it.descripcion && it.descripcion !== nombre ? it.descripcion : "";
-    const sku = it.sku && !it.sku.startsWith(" ") ? it.sku : "";
+    const baseLinea = tasa > 0 ? totalConIva / (1 + tasa) : totalConIva;
+    const ivaLinea = totalConIva - baseLinea;
+    const precioBase = cant > 0 ? baseLinea / cant : 0;
+    baseTotal += baseLinea;
+    ivaTotal += ivaLinea;
+    if (tasa > 0) tasasUsadas.add(tasa);
+    return {
+      cant,
+      precioBase,
+      baseLinea,
+      nombre: it.producto_nombre || it.descripcion || "",
+      desc: it.descripcion && it.descripcion !== it.producto_nombre ? it.descripcion : "",
+    };
+  });
+
+  const totalGeneral = Number(venta.total);
+  const ivaPct =
+    tasasUsadas.size === 1
+      ? Math.round([...tasasUsadas][0] * 100)
+      : baseTotal > 0
+      ? Math.round((ivaTotal / baseTotal) * 100)
+      : 0;
+
+  // Fila "título" arriba del listado: nombre del trabajo + ubicación.
+  const tituloFila = (() => {
+    const lineas: string[] = [];
+    if (tituloObra) lineas.push(escapeHtml(tituloObra.toUpperCase()));
+    if (ubicacion) lineas.push(escapeHtml(ubicacion.toUpperCase()));
+    if (descripcion) lineas.push(escapeHtml(descripcion));
+    if (lineas.length === 0) return "";
+    return `<tr class="info-row">
+      <td class="desc">${lineas.map((l, i) => i === 0 ? `<strong>${l}</strong>` : l).join("<br>")}</td>
+      <td class="num">0,00</td><td class="num">0,00</td><td class="num">0,00</td>
+    </tr>`;
+  })();
+
+  const filasItems = filasDatos.map((f) => {
+    const main = `<strong>${escapeHtml(f.nombre)}</strong>`;
+    const sub = f.desc ? `<br>${escapeHtml(f.desc)}` : "";
     return `<tr>
-      <td class="num">${idx + 1}</td>
-      <td>
-        <div class="item-name">${escapeHtml(nombre)}</div>
-        ${desc ? `<div class="item-desc">${escapeHtml(desc)}</div>` : ""}
-        ${sku ? `<div class="item-sku">${escapeHtml(sku)}</div>` : ""}
-      </td>
-      <td class="num tabular">${cant.toLocaleString(LOCALE_BY_LANG[lang], { maximumFractionDigits: 2 })}</td>
-      <td class="num tabular">${fmt(punit)}</td>
-      <td class="num tabular muted">${tasa > 0 ? `${Math.round(tasa * 100)}%` : "—"}</td>
-      <td class="num tabular muted">${ivaInfo > 0 ? fmt(ivaInfo) : "—"}</td>
-      <td class="num tabular strong">${fmt(total)}</td>
+      <td class="desc">${main}${sub}</td>
+      <td class="num">${formatNumLang(f.cant, lang)}</td>
+      <td class="num">${formatNumLang(f.precioBase, lang)}</td>
+      <td class="num">${formatNumLang(f.baseLinea, lang)}</td>
     </tr>`;
   }).join("");
 
-  const totalGeneral = Number(venta.total);
-  // IVA informativo agregado: el precio incluye IVA, así que la fila IVA del
-  // resumen es informativa (sum de total_linea × tasa por partida) y no se
-  // suma al total. Si no hay tasas por partida en BD, cae al monto_iva guardado.
-  const ivaInfoTotal = items.reduce(
-    (s, it) => s + Number(it.total_linea) * tasaIva(it.tipo_iva ?? null),
-    0
-  ) || Number(venta.monto_iva);
-
-  const NEGOCIO_TITULO = NEGOCIO === "NEGOCIO" ? "NCG · Construcción" : NEGOCIO;
+  // Filas finales con condiciones / notas (cantidades 0).
+  const notasArr: string[] = [];
+  if (exclusiones) notasArr.push(exclusiones);
+  if (formaPago) notasArr.push(formaPago);
+  if (condiciones) notasArr.push(condiciones);
+  if (garantiaMo) notasArr.push(garantiaMo);
+  if (garantiaMat) notasArr.push(garantiaMat);
+  if (observacionesTec) notasArr.push(observacionesTec);
+  const filaNotas = notasArr.length > 0
+    ? `<tr class="info-row">
+        <td class="desc">${notasArr.map((n) => escapeHtml(n)).join("<br>")}</td>
+        <td class="num">0,00</td><td class="num">0,00</td><td class="num">0,00</td>
+      </tr>`
+    : "";
 
   return `<!doctype html>
 <html lang="${lang}">
 <head>
 <meta charset="utf-8" />
-<title>${escapeHtml(t.tag)} ${escapeHtml(venta.numero_control)} — ${escapeHtml(NEGOCIO_TITULO)}</title>
+<title>${escapeHtml(t.tag)} ${escapeHtml(venta.numero_control)} — ${escapeHtml(EMISOR.nombre)}</title>
 <style>
-  :root { color-scheme: light; --ink: #0f172a; --muted: #64748b; --line: #e2e8f0; --brand: #0f766e; --soft: #f8fafc; }
+  :root { color-scheme: light; --ink: #0f172a; --muted: #595959; --line: #b7b7b7; --accent: #1f4e79; --soft: #f5f7fa; }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: #eef2f5; color: var(--ink); font: 13px/1.45 -apple-system, "Segoe UI", system-ui, sans-serif; }
-  .sheet { background: #fff; width: 210mm; min-height: 297mm; margin: 14mm auto; padding: 16mm 14mm 18mm; box-shadow: 0 4px 24px rgba(15,23,42,.08); position: relative; }
-  .brand-bar { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding-bottom: 12px; border-bottom: 3px solid var(--brand); }
-  .brand-bar .brand h1 { font-size: 22px; font-weight: 800; margin: 0 0 2px; letter-spacing: .3px; color: var(--brand); }
-  .brand-bar .brand p { margin: 0; font-size: 11px; color: var(--muted); letter-spacing: .8px; text-transform: uppercase; }
-  .doc-id { text-align: right; }
-  .doc-id .tag { display: inline-block; padding: 4px 10px; background: var(--brand); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; border-radius: 4px; }
-  .doc-id .num { font-family: ui-monospace, "JetBrains Mono", monospace; font-size: 13px; color: var(--ink); margin-top: 6px; font-weight: 600; }
-  .doc-id .date { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  html, body { margin: 0; padding: 0; background: #eef2f5; color: var(--ink); font: 11.5px/1.4 Arial, "Helvetica Neue", sans-serif; }
+  .sheet { background: #fff; width: 210mm; min-height: 297mm; margin: 14mm auto; padding: 14mm 14mm 16mm; box-shadow: 0 4px 24px rgba(15,23,42,.08); position: relative; }
 
-  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 18px; }
-  .card { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; background: var(--soft); }
-  .card h3 { margin: 0 0 6px; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase; }
-  .card .line { margin: 2px 0; font-size: 12.5px; }
-  .card .line strong { color: var(--ink); font-weight: 600; }
-  .card .line.muted { color: var(--muted); font-size: 11.5px; }
+  /* Header dos columnas: emisor (izq) y cliente (der) */
+  .header { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 14px; }
+  .party { font-size: 11.5px; line-height: 1.5; }
+  .party .name { font-weight: 700; font-size: 12px; text-transform: uppercase; margin-bottom: 3px; }
+  .party .lines div { margin: 0; }
+  .party.left { padding-left: 4mm; }
 
-  .obra-block { margin-top: 18px; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
-  .obra-block h3 { margin: 0 0 4px; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase; }
-  .obra-block .titulo { font-size: 15px; font-weight: 700; color: var(--ink); margin: 0 0 6px; }
-  .obra-block .desc { font-size: 12.5px; color: var(--ink); white-space: pre-wrap; }
-  .obra-meta { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 8px; font-size: 11.5px; color: var(--muted); }
-  .obra-meta strong { color: var(--ink); }
+  /* Línea con número de presupuesto / fecha / hoja */
+  .meta-line { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); margin-bottom: 6px; font-size: 11px; }
+  .meta-line .left, .meta-line .right { font-weight: 700; }
+  .meta-line .mid { color: var(--ink); font-weight: 700; }
 
-  table.items { width: 100%; border-collapse: collapse; margin-top: 18px; font-size: 12px; }
-  table.items thead th { background: var(--brand); color: #fff; font-weight: 600; text-align: left; padding: 8px 10px; font-size: 10.5px; letter-spacing: .8px; text-transform: uppercase; }
-  table.items thead th.num { text-align: right; }
-  table.items tbody td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  table.items tbody td.num { text-align: right; white-space: nowrap; }
-  table.items tbody td.tabular { font-variant-numeric: tabular-nums; }
-  table.items tbody td.strong { font-weight: 700; color: var(--ink); }
-  table.items tbody td.muted { color: var(--muted); }
-  table.items .item-name { font-weight: 600; color: var(--ink); }
-  table.items .item-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  table.items .item-sku { font-family: ui-monospace, monospace; font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+  /* Tabla de partidas */
+  table.items { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 10.5px; }
+  table.items thead th { background: var(--soft); color: var(--accent); font-weight: 700; text-align: center; padding: 7px 6px; font-size: 11px; border: 1px solid var(--line); letter-spacing: .3px; }
+  table.items thead th.desc { text-align: center; }
+  table.items tbody td { padding: 6px 8px; border: 1px solid var(--line); vertical-align: top; }
+  table.items tbody td.desc { font-size: 10.5px; line-height: 1.45; }
+  table.items tbody td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; width: 70px; }
+  table.items tbody tr.info-row td.desc { font-weight: 600; }
+  table.items tbody tr.info-row td.num { color: var(--muted); }
+  /* fila vacía estiradora para que la tabla llene la página */
+  table.items tbody tr.spacer td { border: 1px solid var(--line); border-top: none; height: 100%; }
 
-  .totals-wrap { display: flex; justify-content: flex-end; margin-top: 12px; }
-  .totals { width: 280px; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; background: var(--soft); }
-  .totals .row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12.5px; color: var(--muted); }
-  .totals .row strong { color: var(--ink); }
-  .totals .total-row { border-top: 2px solid var(--brand); margin-top: 6px; padding-top: 8px; font-size: 15px; color: var(--ink); font-weight: 800; }
-
-  .terms { margin-top: 22px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .terms .card { background: #fff; }
-  .terms .card h3 { color: var(--brand); }
-  .terms .card .line { color: var(--ink); }
-
-  .signature { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 32px; padding-top: 20px; }
-  .signature .box { text-align: center; }
-  .signature .line-sig { border-top: 1px solid var(--ink); margin: 36px 8px 6px; }
-  .signature .label { font-size: 11px; color: var(--muted); }
-
-  .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 10.5px; color: var(--muted); text-align: center; line-height: 1.5; }
+  /* Tabla totales abajo */
+  .totales { display: grid; grid-template-columns: 1.2fr 1.5fr 1.3fr 1.3fr; gap: 0; margin-top: 14px; border: 1px solid var(--line); }
+  .totales .cell { padding: 8px 10px; border-right: 1px solid var(--line); }
+  .totales .cell:last-child { border-right: none; }
+  .totales .lbl { background: var(--soft); color: var(--accent); font-weight: 700; text-align: center; font-size: 11px; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+  .totales .row2 { display: contents; }
+  .totales .val { text-align: center; font-variant-numeric: tabular-nums; font-size: 11.5px; padding: 10px; }
+  .totales .val.total { font-weight: 800; font-size: 13px; color: var(--ink); }
+  .totales .iva-pct, .totales .irpf-pct { display: inline-block; min-width: 38px; text-align: left; }
+  .totales .iva-cell, .totales .irpf-cell { display: flex; justify-content: space-between; gap: 8px; }
 
   .actions { max-width: 210mm; margin: 0 auto 30px; text-align: right; padding: 0 14mm; }
-  .actions button { padding: 9px 18px; font-size: 13px; cursor: pointer; border: 1px solid var(--brand); background: var(--brand); color: #fff; border-radius: 6px; font-weight: 600; }
+  .actions button { padding: 9px 18px; font-size: 13px; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 6px; font-weight: 600; }
   .actions button:hover { opacity: .9; }
 
   @media print {
     body { background: #fff; }
-    .sheet { box-shadow: none; margin: 0; width: 100%; min-height: auto; padding: 14mm; }
+    .sheet { box-shadow: none; margin: 0; width: 100%; min-height: auto; padding: 12mm; }
     .actions { display: none; }
     @page { size: A4; margin: 0; }
   }
@@ -517,94 +603,60 @@ function renderPresupuesto(opts: {
 </head>
 <body>
   <div class="sheet">
-    <div class="brand-bar">
-      <div class="brand">
-        <h1>${escapeHtml(NEGOCIO_TITULO)}</h1>
-        <p>${escapeHtml(t.subtitle)}</p>
+    <div class="header">
+      <div class="party left">
+        <div class="name">${escapeHtml(EMISOR.nombre)}</div>
+        <div class="lines">
+          ${EMISOR.direccion ? `<div>${escapeHtml(EMISOR.direccion)}</div>` : ""}
+          ${EMISOR.cp_ciudad ? `<div>${escapeHtml(EMISOR.cp_ciudad)}</div>` : ""}
+          ${EMISOR.provincia ? `<div>${escapeHtml(EMISOR.provincia)}</div>` : ""}
+          ${EMISOR.nif ? `<div>${escapeHtml(t.nif_lbl)} ${escapeHtml(EMISOR.nif)}</div>` : ""}
+          ${EMISOR.tel ? `<div>${escapeHtml(t.tel_lbl)} ${escapeHtml(EMISOR.tel)}</div>` : ""}
+          ${EMISOR.email ? `<div>${escapeHtml(t.email_lbl)} ${escapeHtml(EMISOR.email)}</div>` : ""}
+        </div>
       </div>
-      <div class="doc-id">
-        <span class="tag">${escapeHtml(t.tag)}</span>
-        <div class="num">${escapeHtml(venta.numero_control)}</div>
-        <div class="date">${escapeHtml(t.emitido)}: ${formatFechaCorta(venta.fecha, lang)}</div>
-        ${validoHasta ? `<div class="date">${escapeHtml(t.valido_hasta)}: ${validoHasta}</div>` : ""}
-      </div>
-    </div>
-
-    <div class="info-grid">
-      <div class="card">
-        <h3>${escapeHtml(t.cliente)}</h3>
-        <div class="line"><strong>${escapeHtml(clienteNombre)}</strong></div>
-        ${clienteContactoSec ? `<div class="line muted">${escapeHtml(clienteContactoSec)}</div>` : ""}
-        ${clienteRuc ? `<div class="line muted">${escapeHtml(t.cif)}: ${escapeHtml(clienteRuc)}</div>` : ""}
-        ${clienteTel ? `<div class="line muted">${escapeHtml(t.tel)}: ${escapeHtml(clienteTel)}</div>` : ""}
-        ${clienteEmail ? `<div class="line muted">${escapeHtml(clienteEmail)}</div>` : ""}
-        ${clienteDir ? `<div class="line muted">${escapeHtml(clienteDir)}${clienteCiudad ? ", " + escapeHtml(clienteCiudad) : ""}</div>` : (clienteCiudad ? `<div class="line muted">${escapeHtml(clienteCiudad)}</div>` : "")}
-      </div>
-      <div class="card">
-        <h3>${escapeHtml(t.ubicacion)}</h3>
-        <div class="line">${escapeHtml(ubicacion || "—")}</div>
-        ${ciudadZona ? `<div class="line muted">${escapeHtml(ciudadZona)}</div>` : ""}
-        ${superficie ? `<div class="line muted">${escapeHtml(t.superficie)}: <strong>${escapeHtml(superficie)} ${escapeHtml(unidad)}</strong></div>` : ""}
+      <div class="party right">
+        <div class="name">${escapeHtml(clienteNombre)}</div>
+        <div class="lines">
+          ${clienteDir ? `<div>${escapeHtml(clienteDir)}</div>` : ""}
+          ${clienteCiudad ? `<div>${escapeHtml(clienteCiudad)}</div>` : ""}
+          ${clienteProvincia ? `<div>${escapeHtml(clienteProvincia)}</div>` : ""}
+          ${clienteRuc ? `<div>${escapeHtml(t.nif_lbl)} ${escapeHtml(clienteRuc)}</div>` : ""}
+        </div>
       </div>
     </div>
 
-    <div class="obra-block">
-      <h3>${escapeHtml(t.trabajo)}</h3>
-      <p class="titulo">${escapeHtml(tituloObra)}</p>
-      ${descripcion ? `<div class="desc">${escapeHtml(descripcion)}</div>` : ""}
-      ${(fechaInicio || plazoEstimado) ? `<div class="obra-meta">
-        ${fechaInicio ? `<span>${escapeHtml(t.inicio)}: <strong>${formatFechaCorta(fechaInicio, lang)}</strong></span>` : ""}
-        ${plazoEstimado ? `<span>${escapeHtml(t.plazo)}: <strong>${escapeHtml(plazoEstimado)}</strong></span>` : ""}
-      </div>` : ""}
+    <div class="meta-line">
+      <div class="left">${escapeHtml(t.num_presupuesto)}: ${escapeHtml(venta.numero_control)}</div>
+      <div class="mid">${escapeHtml(t.fecha_lbl)}: ${formatFechaCorta(venta.fecha, lang)}</div>
+      <div class="right">${escapeHtml(t.hoja_lbl)}: 1 ${escapeHtml(t.hoja_de)} 1</div>
     </div>
 
     <table class="items">
       <thead>
         <tr>
-          <th class="num" style="width: 26px;">#</th>
-          <th>${escapeHtml(t.th_concepto)}</th>
-          <th class="num" style="width: 60px;">${escapeHtml(t.th_cant)}</th>
-          <th class="num" style="width: 80px;">${escapeHtml(t.th_punit)}</th>
-          <th class="num" style="width: 50px;">${escapeHtml(t.th_iva)}</th>
-          <th class="num" style="width: 80px;">${escapeHtml(t.th_iva_eur)}</th>
-          <th class="num" style="width: 90px;">${escapeHtml(t.th_total)}</th>
+          <th class="desc">${escapeHtml(t.col_desc)}</th>
+          <th>${escapeHtml(t.col_unid)}</th>
+          <th>${escapeHtml(t.col_precio)}</th>
+          <th>${escapeHtml(t.col_total)}</th>
         </tr>
       </thead>
-      <tbody>${filasItems}</tbody>
+      <tbody>
+        ${tituloFila}
+        ${filasItems}
+        ${filaNotas}
+      </tbody>
     </table>
 
-    <div class="totals-wrap">
-      <div class="totals">
-        <div class="row"><span>${escapeHtml(t.total)}</span><strong>${fmt(totalGeneral)}</strong></div>
-        <div class="row"><span>${escapeHtml(t.iva_incluido)}</span><span>${ivaInfoTotal > 0 ? fmt(ivaInfoTotal) : "—"}</span></div>
-        <div class="row total-row"><span>${escapeHtml(t.total_pres)}</span><span>${fmt(totalGeneral)}</span></div>
-      </div>
-    </div>
-
-    ${(formaPago || condiciones || garantiaMo || garantiaMat || exclusiones || observacionesTec) ? `
-    <div class="terms">
-      ${formaPago ? `<div class="card"><h3>${escapeHtml(t.forma_pago)}</h3><div class="line">${escapeHtml(formaPago)}</div></div>` : ""}
-      ${condiciones ? `<div class="card"><h3>${escapeHtml(t.condiciones)}</h3><div class="line">${escapeHtml(condiciones)}</div></div>` : ""}
-      ${garantiaMo ? `<div class="card"><h3>${escapeHtml(t.gar_mo)}</h3><div class="line">${escapeHtml(garantiaMo)}</div></div>` : ""}
-      ${garantiaMat ? `<div class="card"><h3>${escapeHtml(t.gar_mat)}</h3><div class="line">${escapeHtml(garantiaMat)}</div></div>` : ""}
-      ${exclusiones ? `<div class="card"><h3>${escapeHtml(t.no_incluido)}</h3><div class="line">${escapeHtml(exclusiones)}</div></div>` : ""}
-      ${observacionesTec ? `<div class="card"><h3>${escapeHtml(t.obs_tec)}</h3><div class="line">${escapeHtml(observacionesTec)}</div></div>` : ""}
-    </div>` : ""}
-
-    <div class="signature">
-      <div class="box">
-        <div class="line-sig"></div>
-        <div class="label">${escapeHtml(NEGOCIO_TITULO)}</div>
-      </div>
-      <div class="box">
-        <div class="line-sig"></div>
-        <div class="label">${escapeHtml(t.conformidad)}</div>
-      </div>
-    </div>
-
-    <div class="footer">
-      ${escapeHtml(t.footer_validez.replace("{n}", String(validezDias)))}<br>
-      ${escapeHtml(t.footer_legal)}
+    <div class="totales">
+      <div class="lbl">${escapeHtml(t.box_base)}</div>
+      <div class="lbl">${escapeHtml(t.box_iva)}</div>
+      <div class="lbl">${escapeHtml(t.box_irpf)}</div>
+      <div class="lbl">${escapeHtml(t.box_total)}</div>
+      <div class="val">${formatNumLang(baseTotal, lang)}</div>
+      <div class="val iva-cell"><span class="iva-pct">${ivaPct}%</span><span>${formatNumLang(ivaTotal, lang)}</span></div>
+      <div class="val irpf-cell"><span class="irpf-pct">0%</span><span>0,00</span></div>
+      <div class="val total">${formatNumLang(totalGeneral, lang)}</div>
     </div>
   </div>
 
@@ -765,7 +817,28 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
       if (!cQ.error && cQ.data) cliente = cQ.data as ClienteLite;
     }
     const lang = parseLang(url.searchParams.get("lang"));
-    const html = renderPresupuesto({ venta, items: itemsRaw, cliente, lang });
+    // Datos del emisor desde presupuesto_emisor_config (single-row por empresa).
+    let emisor: Emisor = { ...EMISOR_DEFAULT };
+    try {
+      const eQ = await ctx.supabase
+        .from("presupuesto_emisor_config")
+        .select("nombre, direccion, cp_ciudad, provincia, nif, telefono, email")
+        .eq("empresa_id", empresaId)
+        .maybeSingle();
+      if (!eQ.error && eQ.data) {
+        const e = eQ.data as Record<string, string | null>;
+        emisor = {
+          nombre: e.nombre?.trim() || EMISOR_DEFAULT.nombre,
+          direccion: e.direccion?.trim() || "",
+          cp_ciudad: e.cp_ciudad?.trim() || "",
+          provincia: e.provincia?.trim() || "",
+          nif: e.nif?.trim() || "",
+          tel: e.telefono?.trim() || "",
+          email: e.email?.trim() || "",
+        };
+      }
+    } catch {}
+    const html = renderPresupuesto({ venta, items: itemsRaw, cliente, lang, emisor });
     return new NextResponse(html, {
       status: 200,
       headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },

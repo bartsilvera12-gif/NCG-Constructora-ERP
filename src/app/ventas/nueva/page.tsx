@@ -880,6 +880,10 @@ type ObraMeta = {
   cliente_empresa: string;
   /** Dirección — usada al crear el cliente al aprobar el presupuesto. */
   cliente_direccion: string;
+  /** Provincia — para encabezado del PDF (lado derecho). */
+  cliente_provincia: string;
+  /** NIF / CIF / RUC del cliente — para encabezado del PDF (lado derecho). */
+  cliente_ruc: string;
   // Obra
   titulo_obra: string;
   tipo_obra_id: string;
@@ -917,6 +921,8 @@ const INITIAL_OBRA_META: ObraMeta = {
   cliente_zona: "",
   cliente_empresa: "",
   cliente_direccion: "",
+  cliente_provincia: "",
+  cliente_ruc: "",
   titulo_obra: "",
   tipo_obra_id: "",
   ubicacion: "",
@@ -969,6 +975,8 @@ function obraMetaToPayload(m: ObraMeta): Record<string, unknown> {
     cliente_zona: str(m.cliente_zona),
     cliente_empresa: str(m.cliente_empresa),
     cliente_direccion: str(m.cliente_direccion),
+    cliente_provincia: str(m.cliente_provincia),
+    cliente_ruc: str(m.cliente_ruc),
     titulo_obra: str(m.titulo_obra),
     tipo_obra_id: m.tipo_obra_id || null,
     ubicacion: str(m.ubicacion),
@@ -1124,9 +1132,24 @@ function DatosObraSection({
               placeholder="cliente@ejemplo.com" className={PRESUP_INPUT} />
           </div>
           <div className="md:col-span-2">
-            <label className={PRESUP_LABEL}>Zona / ciudad</label>
+            <label className={PRESUP_LABEL}>Dirección</label>
+            <input value={meta.cliente_direccion} onChange={(e) => setField("cliente_direccion", e.target.value)}
+              placeholder="Calle, número, piso..." className={PRESUP_INPUT} />
+          </div>
+          <div>
+            <label className={PRESUP_LABEL}>CP + ciudad</label>
             <input value={meta.cliente_zona} onChange={(e) => setField("cliente_zona", e.target.value)}
-              placeholder="Ej. Madrid Centro" className={PRESUP_INPUT} />
+              placeholder="Ej. 28300 Aranjuez" className={PRESUP_INPUT} />
+          </div>
+          <div>
+            <label className={PRESUP_LABEL}>Provincia</label>
+            <input value={meta.cliente_provincia} onChange={(e) => setField("cliente_provincia", e.target.value)}
+              placeholder="Ej. Madrid" className={PRESUP_INPUT} />
+          </div>
+          <div>
+            <label className={PRESUP_LABEL}>N.I.F. / CIF</label>
+            <input value={meta.cliente_ruc} onChange={(e) => setField("cliente_ruc", e.target.value)}
+              placeholder="Ej. B12345678" className={PRESUP_INPUT} />
           </div>
         </div>
       </PresupSection>

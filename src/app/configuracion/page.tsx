@@ -121,6 +121,16 @@ export default function ConfiguracionPage() {
           </li>
           <li>
             <SettingsModuleCard
+              title="Datos del emisor (presupuesto)"
+              subtitle="EMPRESA · PDF"
+              description="Nombre, dirección, NIF, teléfono y e-mail que aparecen en el encabezado izquierdo del PDF del presupuesto."
+              icon={FileText}
+              badge={editorBadge}
+              href="/configuracion/presupuesto-emisor"
+            />
+          </li>
+          <li>
+            <SettingsModuleCard
               title="Entidades bancarias"
               subtitle="GLOBAL · CONCILIACIÓN"
               description="Registrá bancos, financieras y billeteras con su código de pago. Se autocompletan al cobrar por transferencia o tarjeta."
