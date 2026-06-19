@@ -360,9 +360,17 @@ function CamaraModal({
           return;
         }
         streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play().catch(() => {});
+        const v = videoRef.current;
+        if (v) {
+          v.srcObject = stream;
+          // Esperar a que el video tenga dimensiones reales antes de habilitar
+          // el botón Capturar — si no, el canvas sale 0x0 y el upload falla.
+          await new Promise<void>((resolve) => {
+            if (v.videoWidth > 0) return resolve();
+            const onMeta = () => { v.removeEventListener("loadedmetadata", onMeta); resolve(); };
+            v.addEventListener("loadedmetadata", onMeta);
+          });
+          await v.play().catch(() => {});
         }
         setListo(true);
       } catch (e) {
@@ -387,15 +395,27 @@ function CamaraModal({
   function capturar() {
     const video = videoRef.current;
     if (!video || !listo) return;
+    const w = video.videoWidth;
+    const h = video.videoHeight;
+    if (!w || !h) {
+      setErr("La cámara aún no está lista. Esperá un segundo y volvé a intentar.");
+      return;
+    }
     const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = w;
+    canvas.height = h;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    if (!ctx) {
+      setErr("El navegador no soporta canvas 2D.");
+      return;
+    }
+    ctx.drawImage(video, 0, 0, w, h);
     canvas.toBlob(
       (blob) => {
-        if (!blob) return;
+        if (!blob || blob.size === 0) {
+          setErr("No se pudo capturar la foto (blob vacío).");
+          return;
+        }
         const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
         const file = new File([blob], `foto-${ts}.jpg`, { type: "image/jpeg" });
         onCapture(file);
