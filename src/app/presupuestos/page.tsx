@@ -19,6 +19,7 @@ import { getVentas } from "@/lib/ventas/storage";
 import type { Venta } from "@/lib/ventas/types";
 import ImputarObraSelect from "@/components/proyectos/ImputarObraSelect";
 import PresupuestoActions from "@/components/ventas/PresupuestoActions";
+import PresupuestoImagenesModal from "@/components/presupuesto/PresupuestoImagenesModal";
 
 type EstadoPres = "pendiente" | "aprobado" | "rechazado" | "convertido";
 
@@ -229,7 +230,10 @@ export default function PresupuestosPage() {
                       />
                     </td>
                     <td className="py-4 text-center align-middle">
-                      <ImprimirIdiomaMenu ventaId={v.id} />
+                      <div className="flex items-center justify-center gap-1.5">
+                        <ImagenesButton ventaId={v.id} />
+                        <ImprimirIdiomaMenu ventaId={v.id} />
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -289,6 +293,23 @@ function ImprimirIdiomaMenu({ ventaId }: { ventaId: string }) {
         </div>
       )}
     </div>
+  );
+}
+
+function ImagenesButton({ ventaId }: { ventaId: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center justify-center rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors"
+        title="Imágenes adjuntas"
+      >
+        Fotos
+      </button>
+      {open && <PresupuestoImagenesModal ventaId={ventaId} onClose={() => setOpen(false)} />}
+    </>
   );
 }
 

@@ -460,8 +460,9 @@ function renderPresupuesto(opts: {
   lang: Lang;
   emisor: Emisor;
   kind?: "presupuesto" | "factura";
+  imagenes?: Array<{ url: string; nombre: string }>;
 }): string {
-  const { venta, items, cliente, lang, emisor, kind = "presupuesto" } = opts;
+  const { venta, items, cliente, lang, emisor, kind = "presupuesto", imagenes = [] } = opts;
   const EMISOR = emisor;
   const isFactura = kind === "factura";
   const t = I18N[lang];
@@ -609,6 +610,14 @@ function renderPresupuesto(opts: {
 
   .forma-pago-box { margin-top: 16px; padding: 8px 12px; border: 1px solid var(--line); font-size: 11px; color: var(--ink); }
 
+  .img-sheet { background: #fff; width: 210mm; min-height: 297mm; margin: 14mm auto; padding: 14mm; box-shadow: 0 4px 24px rgba(15,23,42,.08); page-break-before: always; break-before: page; display: flex; flex-direction: column; }
+  .img-sheet .img-wrap { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .img-sheet img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+  .img-sheet .caption { margin-top: 10px; font-size: 10.5px; color: var(--muted); text-align: center; }
+  @media print {
+    .img-sheet { box-shadow: none; margin: 0; padding: 12mm; width: 100%; min-height: 100vh; }
+  }
+
   .actions { max-width: 210mm; margin: 0 auto 30px; text-align: right; padding: 0 14mm; }
   .actions button { padding: 9px 18px; font-size: 13px; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 6px; font-weight: 600; }
   .actions button:hover { opacity: .9; }
@@ -684,6 +693,12 @@ function renderPresupuesto(opts: {
       ${escapeHtml(t.forma_pago_lbl)}: ${escapeHtml(formaPago ?? metodoPagoLabel(venta.metodo_pago))}
     </div>` : ""}
   </div>
+
+  ${imagenes.map((img) => `
+  <div class="img-sheet">
+    <div class="img-wrap"><img src="${escapeHtml(img.url)}" alt="${escapeHtml(img.nombre)}" /></div>
+    ${img.nombre ? `<div class="caption">${escapeHtml(img.nombre)}</div>` : ""}
+  </div>`).join("")}
 
   <div class="actions">
     <button type="button" onclick="window.print()">${escapeHtml(t.imprimir)}</button>
@@ -866,7 +881,28 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
         };
       }
     } catch {}
-    const html = renderPresupuesto({ venta, items: itemsRaw, cliente, lang, emisor, kind: esPresupuesto ? "presupuesto" : "factura" });
+    // Imágenes adjuntas (firmadas, TTL 1h). Falla silencioso si no hay tabla aún.
+    let imagenes: Array<{ url: string; nombre: string }> = [];
+    try {
+      const { data: imgRows } = await ctx.supabase
+        .from("presupuesto_imagenes")
+        .select("storage_path, nombre")
+        .eq("empresa_id", empresaId)
+        .eq("venta_id", id)
+        .order("orden", { ascending: true })
+        .order("created_at", { ascending: true });
+      if (imgRows && imgRows.length > 0) {
+        const { signImagen } = await import("@/lib/presupuesto/imagenes-storage");
+        const firmadas = await Promise.all(
+          (imgRows as Array<{ storage_path: string; nombre: string }>).map(async (r) => ({
+            url: (await signImagen(ctx.supabase, r.storage_path, 3600)) ?? "",
+            nombre: r.nombre,
+          }))
+        );
+        imagenes = firmadas.filter((i) => i.url);
+      }
+    } catch {}
+    const html = renderPresupuesto({ venta, items: itemsRaw, cliente, lang, emisor, kind: esPresupuesto ? "presupuesto" : "factura", imagenes });
     return new NextResponse(html, {
       status: 200,
       headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
