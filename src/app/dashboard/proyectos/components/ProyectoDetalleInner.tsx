@@ -406,8 +406,8 @@ export default function ProyectoDetalleInner({
     <div
       className={
         variant === "modal"
-          ? "flex max-h-[94vh] flex-col gap-5 p-4 sm:p-6"
-          : "mx-auto max-w-5xl space-y-6 p-6"
+          ? "flex max-h-[94vh] flex-col gap-4 p-3 sm:gap-5 sm:p-6"
+          : "mx-auto max-w-5xl space-y-5 p-3 sm:space-y-6 sm:p-6"
       }
     >
       {variant === "page" ? (
@@ -418,11 +418,11 @@ export default function ProyectoDetalleInner({
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
+      <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:pb-5">
         <div className="min-w-0 flex-1">
           <h1
             id={variant === "modal" ? "proyecto-detalle-titulo" : undefined}
-            className="truncate text-xl font-semibold text-slate-900"
+            className="truncate text-lg font-semibold text-slate-900 sm:text-xl"
           >
             {String(proyecto.titulo ?? "")}
           </h1>
@@ -482,38 +482,40 @@ export default function ProyectoDetalleInner({
 
       {err ? <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">{err}</div> : null}
 
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
-        {(esObra
-          ? TAB_IDS_OBRA
-          : TAB_IDS.filter((t) => {
-              if (t === "presupuesto" || t === "materiales") return false;
-              if (t === "rentabilidad" || t === "tareas") return false;
-              return true;
-            })
-        ).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
-            className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-              tab === t
-                ? "border border-[#4FAEB2]/40 bg-[#E5F4F4] text-[#3F8E91]"
-                : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-            }`}
-          >
-            {esObra && t === "datos"
-              ? "Datos de obra"
-              : esObra && t === "comentarios"
-              ? "Notas"
-              : esObra && t === "personal"
-              ? "Mano de obra"
-              : TAB_LABELS[t]}
-          </button>
-        ))}
+      <div className="flex flex-col gap-2 border-b border-slate-200 pb-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          {(esObra
+            ? TAB_IDS_OBRA
+            : TAB_IDS.filter((t) => {
+                if (t === "presupuesto" || t === "materiales") return false;
+                if (t === "rentabilidad" || t === "tareas") return false;
+                return true;
+              })
+          ).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                tab === t
+                  ? "border border-[#4FAEB2]/40 bg-[#E5F4F4] text-[#3F8E91]"
+                  : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              }`}
+            >
+              {esObra && t === "datos"
+                ? "Datos de obra"
+                : esObra && t === "comentarios"
+                ? "Notas"
+                : esObra && t === "personal"
+                ? "Mano de obra"
+                : TAB_LABELS[t]}
+            </button>
+          ))}
+        </div>
         {esObra ? (
           <Link
             href={`/control-obra/${projectId}`}
-            className="ml-auto inline-flex items-center rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#3F8E91]"
+            className="inline-flex shrink-0 items-center justify-center rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#3F8E91] sm:ml-auto"
           >
             Ver control de obra →
           </Link>

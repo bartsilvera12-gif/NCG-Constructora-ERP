@@ -10,19 +10,21 @@ import type { Venta, LineaVenta } from "@/lib/ventas/types";
 
 const TIPO_PARTIDA_OK = new Set(["producto", "mano_obra", "servicio", "transporte", "otro"]);
 
-function asItems(body: unknown, esPresupuesto: boolean): CreateVentaItemInput[] | null {
-  if (!body || typeof body !== "object") return null;
+type ItemsErr = { ok: false; error: string };
+type ItemsOk = { ok: true; items: CreateVentaItemInput[] };
+function asItems(body: unknown, esPresupuesto: boolean): ItemsOk | ItemsErr {
+  if (!body || typeof body !== "object") return { ok: false, error: "body invalido" };
   const raw = (body as { items?: unknown }).items;
-  // Para presupuestos aceptamos arreglo vacío: permite guardar un draft sin
-  // partidas, donde el cliente recién las completará al revisar la cotización.
-  // Para ventas reales seguimos exigiendo al menos un ítem.
-  if (!Array.isArray(raw)) return null;
-  if (raw.length === 0) return esPresupuesto ? [] : null;
+  if (!Array.isArray(raw)) return { ok: false, error: "items debe ser un arreglo" };
+  if (raw.length === 0) {
+    return esPresupuesto ? { ok: true, items: [] } : { ok: false, error: "La venta debe tener al menos un item" };
+  }
   const out: CreateVentaItemInput[] = [];
-  for (const x of raw) {
-    if (!x || typeof x !== "object") return null;
+  for (let idx = 0; idx < raw.length; idx++) {
+    const x = raw[idx];
+    if (!x || typeof x !== "object") return { ok: false, error: `Item ${idx + 1}: formato invalido` };
     const r = x as Record<string, unknown>;
-    // Normalizamos tipo_iva: si llega vacío o sin "%" lo casteamos al 21% (default ES).
+    // tipo_iva: si llega vacío o sin "%" lo casteamos al 21% (default ES).
     const rawIva = typeof r.tipo_iva === "string" ? r.tipo_iva.trim().toUpperCase() : "";
     const tipoIva: "EXENTA" | "4%" | "5%" | "10%" | "21%" =
       rawIva === "EXENTA" ? "EXENTA"
@@ -52,18 +54,23 @@ function asItems(body: unknown, esPresupuesto: boolean): CreateVentaItemInput[] 
       descripcion,
     });
   }
-  // En venta común: producto_id obligatorio. En presupuesto: si es partida
-  // manual (no 'producto'), basta con descripcion y cantidad/precio.
-  for (const i of out) {
-    if (!(i.cantidad > 0)) return null;
+  // Validacion por item: cantidad > 0 y (producto_id O descripcion).
+  for (let idx = 0; idx < out.length; idx++) {
+    const i = out[idx];
+    if (!(i.cantidad > 0)) {
+      return { ok: false, error: `Item ${idx + 1} ("${i.producto_nombre || i.descripcion || "sin nombre"}"): cantidad invalida` };
+    }
     if (i.tipo_partida === "producto") {
-      if (!i.producto_id) return null;
+      if (!i.producto_id) {
+        return { ok: false, error: `Item ${idx + 1} ("${i.producto_nombre || "producto"}"): producto_id requerido` };
+      }
     } else {
-      if (!esPresupuesto) return null; // partidas manuales solo en presupuesto
-      if (!i.descripcion) return null;
+      if (!i.descripcion && !i.producto_nombre) {
+        return { ok: false, error: `Item ${idx + 1}: la partida manual necesita descripcion` };
+      }
     }
   }
-  return out;
+  return { ok: true, items: out };
 }
 
 function toVentaResponse(
@@ -130,10 +137,11 @@ export async function POST(request: NextRequest) {
 
     const oTmp = body as Record<string, unknown>;
     const esPresupuesto = String(oTmp.tipo_documento ?? "").toLowerCase() === "presupuesto";
-    const items = asItems(body, esPresupuesto);
-    if (!items) {
-      return NextResponse.json(errorResponse("Payload inválido: items requeridos."), { status: 400 });
+    const itemsResult = asItems(body, esPresupuesto);
+    if (!itemsResult.ok) {
+      return NextResponse.json(errorResponse(`Payload invalido: ${itemsResult.error}`), { status: 400 });
     }
+    const items = itemsResult.items;
 
     const o = oTmp;
     const moneda = o.moneda === "USD" ? "USD" : "GS";
