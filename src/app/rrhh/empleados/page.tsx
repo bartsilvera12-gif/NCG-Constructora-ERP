@@ -454,6 +454,7 @@ function EditarEmpleadoModal({
         <form onSubmit={handleSubmit} className="space-y-6 p-5">
           {err && <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{err}</div>}
           <ResumenVacacionesEmpleado empleadoId={empleado.id} />
+          <DocumentacionEmpleado empleadoId={empleado.id} />
           <EmpleadoFormFields form={form} setForm={setForm} editMode supervisores={supervisores} />
           <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
             <button type="button" onClick={onClose}
@@ -1008,6 +1009,178 @@ function ComisionesSection({
           </>
         )}
       </div>
+    </section>
+  );
+}
+
+// ── Documentación adjunta del empleado (archivos sueltos) ───────────────────
+type ArchivoEmp = {
+  id: string;
+  nombre: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  created_at: string;
+  url: string | null;
+};
+
+function fmtBytes(n: number | null): string {
+  if (!n || n <= 0) return "—";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function DocumentacionEmpleado({ empleadoId }: { empleadoId: string }) {
+  const [archivos, setArchivos] = useState<ArchivoEmp[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [subiendo, setSubiendo] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [confirmar, setConfirmar] = useState<ArchivoEmp | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const r = await fetchWithSupabaseSession(`/api/rrhh/empleados/${empleadoId}/archivos`, { cache: "no-store" });
+      const j = (await r.json().catch(() => ({}))) as { success?: boolean; data?: { archivos?: ArchivoEmp[] }; error?: string };
+      if (r.ok && j.success) {
+        setArchivos(j.data?.archivos ?? []);
+        setErr(null);
+      } else {
+        setErr(j.error ?? "No se pudieron cargar los archivos");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void load(); }, [empleadoId]);
+
+  async function handleUpload(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setSubiendo(true);
+    setErr(null);
+    try {
+      const fd = new FormData();
+      for (const f of Array.from(files)) fd.append("file", f);
+      const r = await fetchWithSupabaseSession(`/api/rrhh/empleados/${empleadoId}/archivos`, {
+        method: "POST",
+        body: fd,
+      });
+      const j = (await r.json().catch(() => ({}))) as { success?: boolean; data?: { errores?: string[] }; error?: string };
+      if (!r.ok || !j.success) {
+        setErr(j.error ?? "Error al subir");
+      } else if (j.data?.errores && j.data.errores.length > 0) {
+        setErr(j.data.errores.join(" · "));
+      }
+      await load();
+    } finally {
+      setSubiendo(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  async function handleDelete(a: ArchivoEmp) {
+    const r = await fetchWithSupabaseSession(
+      `/api/rrhh/empleados/${empleadoId}/archivos?archivoId=${a.id}`,
+      { method: "DELETE" }
+    );
+    const j = (await r.json().catch(() => ({}))) as { success?: boolean; error?: string };
+    if (!r.ok || !j.success) {
+      setErr(j.error ?? "No se pudo eliminar");
+      return;
+    }
+    setConfirmar(null);
+    await load();
+  }
+
+  const fmtFecha = (iso: string) => new Date(iso).toLocaleDateString("es-ES");
+  const esImagen = (m: string | null) => !!m && m.startsWith("image/");
+
+  return (
+    <section>
+      <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Documentación</h3>
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        {err && <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">{err}</div>}
+
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <p className="text-xs text-slate-500">
+            DNI, contratos, certificados, cursos, etc. Máx. 25 MB por archivo.
+          </p>
+          <div>
+            <input
+              ref={inputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => void handleUpload(e.target.files)}
+              accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv"
+            />
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={subiendo}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-[#3F8E91] disabled:opacity-50"
+            >
+              <span className="text-base leading-none">+</span> {subiendo ? "Subiendo…" : "Adjuntar archivo"}
+            </button>
+          </div>
+        </div>
+
+        {loading ? (
+          <p className="py-4 text-center text-xs text-slate-400">Cargando…</p>
+        ) : archivos.length === 0 ? (
+          <p className="py-4 text-center text-xs text-slate-400">Sin archivos adjuntos.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {archivos.map((a) => (
+              <li key={a.id} className="flex items-center gap-3 py-2">
+                {esImagen(a.mime_type) && a.url ? (
+                  <a href={a.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={a.url} alt={a.nombre} className="h-10 w-10 rounded border border-slate-200 object-cover" />
+                  </a>
+                ) : (
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded border border-slate-200 bg-slate-50 text-[10px] font-semibold uppercase text-slate-500">
+                    {a.mime_type?.split("/")[1]?.slice(0, 4) ?? "doc"}
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-slate-800">{a.nombre}</p>
+                  <p className="text-xs text-slate-500">{fmtFecha(a.created_at)} · {fmtBytes(a.size_bytes)}</p>
+                </div>
+                {a.url && (
+                  <a href={a.url} target="_blank" rel="noopener noreferrer"
+                    className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50">
+                    Abrir
+                  </a>
+                )}
+                <button type="button" onClick={() => setConfirmar(a)}
+                  className="rounded-md border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50">
+                  Eliminar
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {confirmar && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4" onClick={() => setConfirmar(null)}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h4 className="text-sm font-semibold text-slate-900">Eliminar archivo</h4>
+            <p className="mt-2 text-xs text-slate-600">
+              ¿Eliminar <strong>{confirmar.nombre}</strong>? Esta acción no se puede deshacer.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => setConfirmar(null)}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs">Cancelar</button>
+              <button type="button" onClick={() => void handleDelete(confirmar)}
+                className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700">Eliminar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
