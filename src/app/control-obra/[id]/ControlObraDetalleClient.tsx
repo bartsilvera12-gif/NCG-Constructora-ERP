@@ -25,6 +25,7 @@ type Proyecto = {
   titulo?: string;
   cliente?: { empresa?: string | null; nombre_contacto?: string | null } | null;
   estado?: { nombre?: string } | null;
+  presupuesto_origen_id?: string | null;
 };
 
 type Compra = {
@@ -56,6 +57,7 @@ const TABS = [
   { id: "compras", label: "Compras" },
   { id: "gastos", label: "Gastos" },
   { id: "mano_obra", label: "Mano de obra" },
+  { id: "imagenes", label: "Imágenes" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -175,6 +177,12 @@ export default function ControlObraDetalleClient({ projectId }: { projectId: str
       {tab === "compras" ? <ComprasTab projectId={projectId} /> : null}
       {tab === "gastos" ? <GastosTab projectId={projectId} /> : null}
       {tab === "mano_obra" ? <PersonalObra projectId={projectId} /> : null}
+      {tab === "imagenes" ? (
+        <ImagenesObraTab
+          projectId={projectId}
+          presupuestoOrigenId={proyecto?.presupuesto_origen_id ?? null}
+        />
+      ) : null}
     </div>
   );
 }
