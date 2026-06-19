@@ -40,7 +40,7 @@ export default function ProyectoDetalleModal({
   if (!open || !projectId) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center sm:p-6">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-6">
       <button
         type="button"
         aria-label="Cerrar modal"
@@ -51,7 +51,7 @@ export default function ProyectoDetalleModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="proyecto-detalle-titulo"
-        className="relative flex h-[95vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20 sm:h-auto sm:max-h-[94vh] sm:rounded-2xl"
+        className="relative flex h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20 sm:h-auto sm:max-h-[94vh]"
       >
         <ProyectoDetalleInner
           projectId={projectId}
