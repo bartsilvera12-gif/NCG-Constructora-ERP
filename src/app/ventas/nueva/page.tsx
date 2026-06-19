@@ -8,6 +8,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import ProductPickerModal, { type AgregarVentaPayload } from "@/components/inventario/ProductPickerModal";
 import PagoDetalleModal from "@/components/ventas/PagoDetalleModal";
 import ClientePicker from "@/components/ventas/ClientePicker";
+import CamaraModal from "@/components/ui/CamaraModal";
 import { saveVenta } from "@/lib/ventas/storage";
 import type { TipoIvaVenta, TipoVenta, MonedaVenta, LineaVenta, MetodoPago, TipoPrecioVenta, PagoDetalleVenta } from "@/lib/ventas/types";
 import { parseImporte } from "@/lib/utils/money";
@@ -1508,6 +1509,25 @@ function FotosAdjuntasSection({
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const cameraRef = React.useRef<HTMLInputElement>(null);
+  const [camOpen, setCamOpen] = React.useState(false);
+
+  // En desktop preferimos el modal con preview en vivo (getUserMedia).
+  // En mobile, el input nativo con `capture` ya abre la cámara del sistema y
+  // suele ser una mejor experiencia, así que vamos por ahí directo.
+  function abrirCamara() {
+    const esMobile =
+      typeof window !== "undefined" &&
+      window.matchMedia("(pointer: coarse)").matches;
+    const tieneGUM =
+      typeof navigator !== "undefined" &&
+      !!navigator.mediaDevices &&
+      typeof navigator.mediaDevices.getUserMedia === "function";
+    if (!esMobile && tieneGUM) {
+      setCamOpen(true);
+    } else {
+      cameraRef.current?.click();
+    }
+  }
 
   const agregar = (selected: FileList | null) => {
     if (!selected || selected.length === 0) return;
@@ -1545,7 +1565,7 @@ function FotosAdjuntasSection({
             className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
             Subir imágenes
           </button>
-          <button type="button" onClick={() => cameraRef.current?.click()}
+          <button type="button" onClick={abrirCamara}
             disabled={files.length >= IMG_MAX_CANT}
             className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
             Tomar foto
@@ -1596,6 +1616,22 @@ function FotosAdjuntasSection({
       )}
       {files.length > 0 && (
         <p className="mt-2 text-xs text-slate-500">{files.length} imagen{files.length === 1 ? "" : "es"} se subirá{files.length === 1 ? "" : "n"} al guardar.</p>
+      )}
+
+      {camOpen && (
+        <CamaraModal
+          onClose={() => setCamOpen(false)}
+          onCapture={(file) => {
+            setCamOpen(false);
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            agregar(dt.files);
+          }}
+          onFallback={() => {
+            setCamOpen(false);
+            cameraRef.current?.click();
+          }}
+        />
       )}
     </PresupSection>
   );
