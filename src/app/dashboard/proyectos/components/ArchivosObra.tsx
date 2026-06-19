@@ -59,23 +59,6 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
   const cantImagenes = archivos.filter((a) => esImagen(a.mime_type)).length;
   const limiteAlcanzado = cantImagenes >= MAX_IMAGENES;
 
-  // En mobile (puntero táctil) usamos siempre el input nativo con
-  // capture="environment": abre la cámara de fábrica del celular, que es
-  // mucho más confiable que getUserMedia en navegadores como Brave/Chrome
-  // mobile. En desktop sí usamos el modal con getUserMedia.
-  const onCamaraClick = () => {
-    const esMobile =
-      typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
-    const tieneGetUserMedia =
-      typeof navigator !== "undefined" &&
-      !!navigator.mediaDevices &&
-      typeof navigator.mediaDevices.getUserMedia === "function";
-    if (!esMobile && tieneGetUserMedia) {
-      setCamOpen(true);
-    } else {
-      cameraRef.current?.click();
-    }
-  };
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -162,6 +145,15 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
           <strong>Error:</strong> {err}
         </div>
       )}
+      {subiendo && (
+        <div className="flex items-center gap-2 rounded-lg border border-[#4FAEB2] bg-[#E5F4F4] px-3 py-2 text-sm font-medium text-[#3F8E91]">
+          <svg className="h-4 w-4 animate-spin" viewBox="0 0 20 20" fill="none">
+            <circle cx="10" cy="10" r="7" stroke="currentColor" strokeOpacity="0.3" strokeWidth="2" />
+            <path d="M17 10a7 7 0 0 1-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+          Subiendo archivo…
+        </div>
+      )}
       {/* Zona de upload (file picker + drag&drop). */}
       <div
         onDragOver={(e) => { e.preventDefault(); setDragActivo(true); }}
@@ -187,22 +179,45 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
             Imágenes: {cantImagenes}/{MAX_IMAGENES}{limiteAlcanzado ? " · límite alcanzado" : ""}
           </p>
           <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              disabled={subiendo}
-              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            {/* <label> con input adentro: el click nativo en el label abre el
+                picker. Más robusto que ref.click() en Brave/Chrome mobile. */}
+            <label
+              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 ${
+                subiendo ? "pointer-events-none opacity-50" : ""
+              }`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.338-2.32 5.75 5.75 0 0 1 1.011 11.094" />
               </svg>
               Subir archivo
-            </button>
-            <button
-              type="button"
-              onClick={onCamaraClick}
-              disabled={subiendo || limiteAlcanzado}
-              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              <input
+                ref={inputRef}
+                type="file"
+                multiple
+                accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+                className="sr-only"
+                onChange={(e) => { if (e.target.files) void subir(e.target.files); e.target.value = ""; }}
+              />
+            </label>
+            {/* En mobile: input nativo con capture abre la cámara del sistema.
+                En desktop: el onClick abre el modal getUserMedia. */}
+            <label
+              onClick={(e) => {
+                const esMobile =
+                  typeof window !== "undefined" &&
+                  window.matchMedia("(pointer: coarse)").matches;
+                const tieneGUM =
+                  typeof navigator !== "undefined" &&
+                  !!navigator.mediaDevices &&
+                  typeof navigator.mediaDevices.getUserMedia === "function";
+                if (!esMobile && tieneGUM) {
+                  e.preventDefault();
+                  setCamOpen(true);
+                }
+              }}
+              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 ${
+                subiendo || limiteAlcanzado ? "pointer-events-none opacity-50" : ""
+              }`}
               title={limiteAlcanzado ? "Límite de 5 imágenes alcanzado" : "Tomar foto con la cámara"}
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
@@ -210,24 +225,16 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" />
               </svg>
               Tomar foto
-            </button>
+              <input
+                ref={cameraRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="sr-only"
+                onChange={(e) => { if (e.target.files) void subir(e.target.files); e.target.value = ""; }}
+              />
+            </label>
           </div>
-          <input
-            ref={inputRef}
-            type="file"
-            multiple
-            accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
-            className="hidden"
-            onChange={(e) => { if (e.target.files) void subir(e.target.files); e.target.value = ""; }}
-          />
-          <input
-            ref={cameraRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={(e) => { if (e.target.files) void subir(e.target.files); e.target.value = ""; }}
-          />
           {subiendo && (
             <p className="text-xs text-[#3F8E91] inline-flex items-center gap-1.5 mt-1">
               <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 20 20" fill="none">
