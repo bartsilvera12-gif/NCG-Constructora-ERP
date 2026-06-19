@@ -100,17 +100,25 @@ export async function createVentaTransaccionalPg(
   params: CreateVentaPgParams
 ): Promise<{ ventaId: string; numeroControl: string; fechaIso: string }> {
   const items = params.items;
-  if (!items.length) {
+  const tipoDocEsPresupuesto = params.tipoDocumento === "presupuesto";
+  if (!items.length && !tipoDocEsPresupuesto) {
     throw new Error("La venta debe tener al menos un ítem.");
   }
 
-  const calc = recalcTotals(items);
-  if (
-    Math.abs(calc.subtotal - params.subtotalDeclarado) > TOL ||
-    Math.abs(calc.montoIva - params.montoIvaDeclarado) > TOL ||
-    Math.abs(calc.total - params.totalDeclarado) > TOL
-  ) {
-    throw new Error("Los totales no coinciden con los ítems; revisá el carrito.");
+  // Para presupuestos sin partidas saltamos la verificación de totales: el
+  // documento se guarda como draft con totales en 0 hasta que el comercial
+  // termine de armar la cotización.
+  const calc = items.length
+    ? recalcTotals(items)
+    : { subtotal: 0, montoIva: 0, total: 0 };
+  if (items.length) {
+    if (
+      Math.abs(calc.subtotal - params.subtotalDeclarado) > TOL ||
+      Math.abs(calc.montoIva - params.montoIvaDeclarado) > TOL ||
+      Math.abs(calc.total - params.totalDeclarado) > TOL
+    ) {
+      throw new Error("Los totales no coinciden con los ítems; revisá el carrito.");
+    }
   }
 
   // En presupuestos pueden venir partidas manuales (mano de obra, servicio, transporte, otro)

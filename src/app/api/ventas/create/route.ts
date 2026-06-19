@@ -13,7 +13,11 @@ const TIPO_PARTIDA_OK = new Set(["producto", "mano_obra", "servicio", "transport
 function asItems(body: unknown, esPresupuesto: boolean): CreateVentaItemInput[] | null {
   if (!body || typeof body !== "object") return null;
   const raw = (body as { items?: unknown }).items;
-  if (!Array.isArray(raw) || raw.length === 0) return null;
+  // Para presupuestos aceptamos arreglo vacío: permite guardar un draft sin
+  // partidas, donde el cliente recién las completará al revisar la cotización.
+  // Para ventas reales seguimos exigiendo al menos un ítem.
+  if (!Array.isArray(raw)) return null;
+  if (raw.length === 0) return esPresupuesto ? [] : null;
   const out: CreateVentaItemInput[] = [];
   for (const x of raw) {
     if (!x || typeof x !== "object") return null;

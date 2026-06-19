@@ -357,10 +357,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const nuevoProyecto = nuevoProy as { id: string; titulo: string };
 
     // 8. Vincular el documento de origen a la obra. Para presupuestos se marca
-    //    además estado_presupuesto='convertido'; para ventas reales solo se
-    //    vincula proyecto_id (estado_presupuesto no aplica).
+    //    estado_presupuesto='convertido' Y se promueve el documento a venta
+    //    ('tipo_documento'='venta', 'estado'='completada') para que aparezca en
+    //    /ventas como cualquier otra venta de obra. La trazabilidad queda en
+    //    presupuesto_origen_id del proyecto + presupuesto_meta de la venta.
     const updatePayload: Record<string, unknown> = { proyecto_id: nuevoProyecto.id };
-    if (esPresupuesto) updatePayload.estado_presupuesto = "convertido";
+    if (esPresupuesto) {
+      updatePayload.estado_presupuesto = "convertido";
+      updatePayload.tipo_documento = "venta";
+      updatePayload.estado = "completada";
+    }
     // Si recién creamos el cliente desde el draft, lo dejamos también en la
     // venta para que la traza presupuesto → cliente quede consistente.
     if (!v.cliente_id && clienteIdFinal) updatePayload.cliente_id = clienteIdFinal;
