@@ -8,6 +8,7 @@ import RentabilidadObra from "./RentabilidadObra";
 import PersonalObra from "./PersonalObra";
 import PresupuestoObra from "./PresupuestoObra";
 import MaterialesObra from "./MaterialesObra";
+import ArchivosObra from "./ArchivosObra";
 import {
   ProyectoModuloSelector,
   type ProyectoModuloCatalogo as ModuloCatalogo,
@@ -1031,24 +1032,7 @@ export default function ProyectoDetalleInner({
         ) : null}
 
         {tab === "archivos" ? (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500">
-            <p className="font-medium text-slate-700">Archivos del proyecto</p>
-            <p className="mt-2 text-xs">
-              Registro en base de datos listo; subida a almacenamiento en una siguiente iteración.
-            </p>
-            <ul className="mt-4 space-y-2">
-              {(data.archivos ?? []).length === 0 ? (
-                <li className="text-slate-500">Sin archivos registrados.</li>
-              ) : (
-                (data.archivos ?? []).map((a) => (
-                  <li key={String(a.id)} className="text-slate-600">
-                    {String(a.nombre ?? "")}{" "}
-                    <span className="text-xs text-slate-500">{formatFechaPyFull(String(a.created_at ?? ""))}</span>
-                  </li>
-                ))
-              )}
-            </ul>
-          </div>
+          <ArchivosObra projectId={projectId} />
         ) : null}
 
         {tab === "historial" ? (
