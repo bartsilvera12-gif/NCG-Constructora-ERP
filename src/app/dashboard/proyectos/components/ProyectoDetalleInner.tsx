@@ -418,15 +418,15 @@ export default function ProyectoDetalleInner({
         </div>
       ) : null}
 
-      <div className="flex shrink-0 flex-col gap-3 border-b border-slate-200 pb-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:pb-5">
+      <div className="flex shrink-0 items-start gap-2 border-b border-slate-200 pb-3 sm:gap-4 sm:pb-5">
         <div className="min-w-0 flex-1">
           <h1
             id={variant === "modal" ? "proyecto-detalle-titulo" : undefined}
-            className="truncate text-lg font-semibold text-slate-900 sm:text-xl"
+            className="truncate text-base font-bold text-slate-900 sm:text-xl"
           >
-            {String(proyecto.titulo ?? "")}
+            {String(proyecto.titulo ?? "") || "Proyecto"}
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="truncate text-xs text-slate-500 sm:text-sm">
             {(proyecto as { proyecto_tipo?: { nombre?: string } }).proyecto_tipo?.nombre ?? "—"}
             {esPedido && !esObra
               ? montoVendido != null
@@ -447,10 +447,23 @@ export default function ProyectoDetalleInner({
               </p>
             );
           })()}
+          <div className="mt-2 sm:hidden">
+            <select
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900"
+              value={String(proyecto.estado_id ?? "")}
+              onChange={(e) => void cambiarEstado(e.target.value)}
+            >
+              {estados.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <select
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+            className="hidden rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 sm:block"
             value={String(proyecto.estado_id ?? "")}
             onChange={(e) => void cambiarEstado(e.target.value)}
           >
@@ -460,23 +473,15 @@ export default function ProyectoDetalleInner({
               </option>
             ))}
           </select>
-          {variant === "modal" ? (
-            <button
-              type="button"
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
-              onClick={() => onClose?.()}
-            >
-              Cerrar
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
-              onClick={() => router.push("/dashboard/proyectos")}
-            >
-              Cerrar
-            </button>
-          )}
+          <button
+            type="button"
+            aria-label="Cerrar"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-300 text-slate-600 hover:bg-slate-100 sm:h-auto sm:w-auto sm:rounded-lg sm:px-3 sm:py-2 sm:text-sm sm:text-slate-700"
+            onClick={() => (variant === "modal" ? onClose?.() : router.push("/dashboard/proyectos"))}
+          >
+            <span className="text-lg leading-none sm:hidden">×</span>
+            <span className="hidden sm:inline">Cerrar</span>
+          </button>
         </div>
       </div>
 
@@ -515,7 +520,7 @@ export default function ProyectoDetalleInner({
         {esObra ? (
           <Link
             href={`/control-obra/${projectId}`}
-            className="inline-flex shrink-0 items-center justify-center rounded-lg bg-[#4FAEB2] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#3F8E91] sm:ml-auto"
+            className="inline-flex shrink-0 items-center justify-center self-end rounded-lg bg-[#4FAEB2] px-3 py-1 text-[11px] font-medium text-white hover:bg-[#3F8E91] sm:ml-auto sm:self-auto sm:px-3 sm:py-1.5 sm:text-xs"
           >
             Ver control de obra →
           </Link>
