@@ -291,6 +291,21 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
                     {formatBytes(a.size_bytes)} · {formatFecha(a.created_at)}
                   </p>
                 </div>
+                {a.url && (
+                  <a
+                    href={a.url}
+                    download={a.nombre}
+                    target="_blank"
+                    rel="noopener"
+                    onClick={(e) => e.stopPropagation()}
+                    title="Descargar archivo"
+                    className="absolute left-1.5 top-1.5 rounded-full bg-white/90 backdrop-blur p-1.5 text-slate-700 shadow-sm transition-opacity hover:bg-white sm:opacity-0 sm:group-hover:opacity-100"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+                      <path fillRule="evenodd" d="M10 2a.75.75 0 0 1 .75.75v8.69l2.97-2.97a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.53a.75.75 0 0 1 1.06-1.06l2.97 2.97V2.75A.75.75 0 0 1 10 2Zm-6.75 13.5a.75.75 0 0 1 .75-.75h12a.75.75 0 0 1 0 1.5h-12a.75.75 0 0 1-.75-.75Z" clipRule="evenodd" />
+                    </svg>
+                  </a>
+                )}
                 <button
                   type="button"
                   onClick={() => setConfirmDelete(a)}
@@ -395,15 +410,31 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
               <img src={preview.url} alt={preview.nombre} className="max-h-[85vh] mx-auto rounded-lg shadow-2xl" />
             ) : null}
             <div className="text-center mt-3 text-white text-sm">
-              <p className="font-medium">{preview.nombre}</p>
+              <p className="font-medium break-all">{preview.nombre}</p>
               <p className="text-xs text-white/70 mt-1">{formatBytes(preview.size_bytes)}</p>
-              <button
-                type="button"
-                onClick={() => setPreview(null)}
-                className="mt-3 rounded-lg border border-white/30 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/10"
-              >
-                Cerrar
-              </button>
+              <div className="mt-3 flex items-center justify-center gap-2">
+                {preview.url && (
+                  <a
+                    href={preview.url}
+                    download={preview.nombre}
+                    target="_blank"
+                    rel="noopener"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-slate-100"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+                      <path fillRule="evenodd" d="M10 2a.75.75 0 0 1 .75.75v8.69l2.97-2.97a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.53a.75.75 0 0 1 1.06-1.06l2.97 2.97V2.75A.75.75 0 0 1 10 2Zm-6.75 13.5a.75.75 0 0 1 .75-.75h12a.75.75 0 0 1 0 1.5h-12a.75.75 0 0 1-.75-.75Z" clipRule="evenodd" />
+                    </svg>
+                    Descargar
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setPreview(null)}
+                  className="rounded-lg border border-white/30 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/10"
+                >
+                  Cerrar
+                </button>
+              </div>
             </div>
           </div>
         </div>
