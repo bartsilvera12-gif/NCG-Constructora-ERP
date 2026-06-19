@@ -462,8 +462,10 @@ function renderPresupuesto(opts: {
   emisor: Emisor;
   kind?: "presupuesto" | "factura";
   imagenes?: Array<{ url: string; nombre: string }>;
+  /** Ficha técnica por producto_id (url firmada + nombre). */
+  fichasPorProducto?: Map<string, { url: string; nombre: string }>;
 }): string {
-  const { venta, items, cliente, lang, emisor, kind = "presupuesto", imagenes = [] } = opts;
+  const { venta, items, cliente, lang, emisor, kind = "presupuesto", imagenes = [], fichasPorProducto } = opts;
   const EMISOR = emisor;
   const isFactura = kind === "factura";
   const t = I18N[lang];
@@ -507,12 +509,14 @@ function renderPresupuesto(opts: {
     baseTotal += baseLinea;
     ivaTotal += ivaLinea;
     if (tasa > 0) tasasUsadas.add(tasa);
+    const ficha = it.producto_id ? fichasPorProducto?.get(it.producto_id) : null;
     return {
       cant,
       precioBase,
       baseLinea,
       nombre: it.producto_nombre || it.descripcion || "",
       desc: it.descripcion && it.descripcion !== it.producto_nombre ? it.descripcion : "",
+      ficha: ficha ?? null,
     };
   });
 
@@ -540,8 +544,11 @@ function renderPresupuesto(opts: {
   const filasItems = filasDatos.map((f) => {
     const main = `<strong>${escapeHtml(f.nombre)}</strong>`;
     const sub = f.desc ? `<br>${escapeHtml(f.desc)}` : "";
+    const fichaLink = f.ficha
+      ? `<div class="ficha-link">📄 <a href="${escapeHtml(f.ficha.url)}" target="_blank" rel="noopener">Ficha técnica: ${escapeHtml(f.ficha.nombre)}</a></div>`
+      : "";
     return `<tr>
-      <td class="desc">${main}${sub}</td>
+      <td class="desc">${main}${sub}${fichaLink}</td>
       <td class="num">${formatNumLang(f.cant, lang)}</td>
       <td class="num">${formatNumLang(f.precioBase, lang)}</td>
       <td class="num">${formatNumLang(f.baseLinea, lang)}</td>
@@ -610,6 +617,9 @@ function renderPresupuesto(opts: {
   .totales .iva-cell, .totales .irpf-cell { display: flex; justify-content: space-between; gap: 8px; }
 
   .forma-pago-box { margin-top: 16px; padding: 8px 12px; border: 1px solid var(--line); font-size: 11px; color: var(--ink); }
+
+  .ficha-link { margin-top: 3px; font-size: 9.5px; color: var(--muted); }
+  .ficha-link a { color: var(--accent); text-decoration: underline; }
 
   .img-sheet { background: #fff; width: 210mm; min-height: 297mm; margin: 14mm auto; padding: 14mm; box-shadow: 0 4px 24px rgba(15,23,42,.08); page-break-before: always; break-before: page; display: flex; flex-direction: column; }
   .img-sheet .img-wrap { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
@@ -882,6 +892,29 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
         };
       }
     } catch {}
+    // Fichas técnicas (PDF) de los productos del carrito.
+    const fichasPorProducto = new Map<string, { url: string; nombre: string }>();
+    try {
+      const prodIds = [...new Set(itemsRaw.map((i) => i.producto_id).filter(Boolean))];
+      if (prodIds.length > 0) {
+        const { data: fichasRows } = await ctx.supabase
+          .from("productos")
+          .select("id, ficha_tecnica_path, ficha_tecnica_nombre")
+          .eq("empresa_id", empresaId)
+          .in("id", prodIds);
+        if (fichasRows && fichasRows.length > 0) {
+          const { signFicha } = await import("@/lib/inventario/ficha-tecnica-storage");
+          await Promise.all(
+            (fichasRows as Array<{ id: string; ficha_tecnica_path: string | null; ficha_tecnica_nombre: string | null }>).map(async (r) => {
+              if (!r.ficha_tecnica_path) return;
+              const url = await signFicha(ctx.supabase, r.ficha_tecnica_path, 3600);
+              if (url) fichasPorProducto.set(r.id, { url, nombre: r.ficha_tecnica_nombre ?? "ficha.pdf" });
+            })
+          );
+        }
+      }
+    } catch {}
+
     // Imágenes adjuntas (firmadas, TTL 1h). Falla silencioso si no hay tabla aún.
     let imagenes: Array<{ url: string; nombre: string }> = [];
     try {
@@ -903,7 +936,7 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
         imagenes = firmadas.filter((i) => i.url);
       }
     } catch {}
-    const html = renderPresupuesto({ venta, items: itemsRaw, cliente, lang, emisor, kind: esPresupuesto ? "presupuesto" : "factura", imagenes });
+    const html = renderPresupuesto({ venta, items: itemsRaw, cliente, lang, emisor, kind: esPresupuesto ? "presupuesto" : "factura", imagenes, fichasPorProducto });
     return new NextResponse(html, {
       status: 200,
       headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },

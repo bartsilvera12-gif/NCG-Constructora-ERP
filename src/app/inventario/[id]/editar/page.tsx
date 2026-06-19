@@ -9,6 +9,7 @@ import { getProducto, productoExiste, updateProducto } from "@/lib/inventario/st
 import { generarEan13 } from "@/lib/inventario/ean13";
 import type { MetodoValuacion } from "@/lib/inventario/types";
 import ProductImageUploader from "@/components/inventario/ProductImageUploader";
+import FichaTecnicaField from "@/components/inventario/FichaTecnicaField";
 import SelectFromList from "@/components/inventario/SelectFromList";
 import HerramientaCondicionForm, {
   EMPTY_HERRAMIENTA,
@@ -634,6 +635,12 @@ export default function EditarProductoPage() {
                 setImagenUrl(info.imagen_url);
               }}
             />
+          </div>
+
+          {/* Ficha técnica (PDF) */}
+          <div>
+            <label className={labelClass}>Ficha técnica (PDF)</label>
+            <FichaTecnicaField productoId={id} />
           </div>
 
           {/* Clasificación, Proveedor, Ubicación */}

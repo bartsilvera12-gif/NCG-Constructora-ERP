@@ -424,6 +424,17 @@ export default function NuevoProductoPage() {
         return;
       }
 
+      // Subir ficha técnica (PDF) — no es crítico, si falla seguimos.
+      if (fichaFile) {
+        try {
+          const fd = new FormData();
+          fd.append("file", fichaFile);
+          await fetch(`/api/productos/${guardado.id}/ficha-tecnica`, {
+            method: "POST", body: fd, credentials: "include",
+          });
+        } catch {}
+      }
+
       // Subir imagen (post-creacion, con producto_id real)
       if (imagenFile) {
         try {
