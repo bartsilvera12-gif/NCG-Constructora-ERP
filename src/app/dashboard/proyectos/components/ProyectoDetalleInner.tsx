@@ -9,6 +9,7 @@ import PersonalObra from "./PersonalObra";
 import PresupuestoObra from "./PresupuestoObra";
 import MaterialesObra from "./MaterialesObra";
 import ArchivosObra from "./ArchivosObra";
+import ImagenesPresupuestoObra from "./ImagenesPresupuestoObra";
 import {
   ProyectoModuloSelector,
   type ProyectoModuloCatalogo as ModuloCatalogo,
@@ -48,7 +49,7 @@ export type DetalleResp = {
 type UsuarioActivo = { id: string; nombre?: string | null; email?: string | null };
 type EmpleadoActivo = { id: string; nombre: string; cargo?: string | null };
 
-const TAB_IDS = ["resumen", "datos", "presupuesto", "materiales", "personal", "rentabilidad", "tareas", "comentarios", "archivos", "historial"] as const;
+const TAB_IDS = ["resumen", "datos", "presupuesto", "materiales", "personal", "rentabilidad", "tareas", "comentarios", "archivos", "imagenes_presupuesto", "historial"] as const;
 export type TabId = (typeof TAB_IDS)[number];
 
 const TAB_LABELS: Record<TabId, string> = {
@@ -61,6 +62,7 @@ const TAB_LABELS: Record<TabId, string> = {
   tareas: "Tareas",
   comentarios: "Comentarios",
   archivos: "Archivos",
+  imagenes_presupuesto: "Imágenes del presupuesto",
   historial: "Historial",
 };
 
@@ -70,7 +72,7 @@ const TAB_LABELS: Record<TabId, string> = {
  * trazabilidad/historial financiero) viven en /control-obra/[id].
  * Comentarios se muestra como "Notas".
  */
-const TAB_IDS_OBRA: readonly TabId[] = ["resumen", "datos", "personal", "comentarios", "archivos"];
+const TAB_IDS_OBRA: readonly TabId[] = ["resumen", "datos", "personal", "comentarios", "archivos", "imagenes_presupuesto"];
 
 function normalizeTab(raw: string | null | undefined): TabId {
   if (!raw) return "resumen";
@@ -496,7 +498,15 @@ export default function ProyectoDetalleInner({
                 if (t === "rentabilidad" || t === "tareas") return false;
                 return true;
               })
-          ).map((t) => (
+          )
+            .filter((t) => {
+              // Solo mostrar "Imágenes del presupuesto" si la obra fue creada
+              // desde un presupuesto (tiene presupuesto_origen_id).
+              if (t !== "imagenes_presupuesto") return true;
+              const p = proyecto as { presupuesto_origen_id?: string | null } | null;
+              return !!p?.presupuesto_origen_id;
+            })
+            .map((t) => (
             <button
               key={t}
               type="button"
@@ -1041,6 +1051,15 @@ export default function ProyectoDetalleInner({
         {tab === "archivos" ? (
           <ArchivosObra projectId={projectId} />
         ) : null}
+
+        {tab === "imagenes_presupuesto" ? (() => {
+          const p = proyecto as { presupuesto_origen_id?: string | null } | null;
+          const ventaId = p?.presupuesto_origen_id ?? null;
+          if (!ventaId) {
+            return <p className="text-sm text-slate-500">Esta obra no tiene un presupuesto de origen.</p>;
+          }
+          return <ImagenesPresupuestoObra ventaId={ventaId} />;
+        })() : null}
 
         {tab === "historial" ? (
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
