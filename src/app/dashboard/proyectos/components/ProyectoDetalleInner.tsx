@@ -406,7 +406,7 @@ export default function ProyectoDetalleInner({
     <div
       className={
         variant === "modal"
-          ? "flex max-h-[94vh] flex-col gap-4 p-3 sm:gap-5 sm:p-6"
+          ? "flex h-full min-h-0 flex-1 flex-col gap-4 p-3 sm:gap-5 sm:p-6"
           : "mx-auto max-w-5xl space-y-5 p-3 sm:space-y-6 sm:p-6"
       }
     >
@@ -418,7 +418,7 @@ export default function ProyectoDetalleInner({
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:pb-5">
+      <div className="flex shrink-0 flex-col gap-3 border-b border-slate-200 pb-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:pb-5">
         <div className="min-w-0 flex-1">
           <h1
             id={variant === "modal" ? "proyecto-detalle-titulo" : undefined}
@@ -482,7 +482,7 @@ export default function ProyectoDetalleInner({
 
       {err ? <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">{err}</div> : null}
 
-      <div className="flex flex-col gap-2 border-b border-slate-200 pb-3 sm:flex-row sm:flex-wrap sm:items-center">
+      <div className="flex shrink-0 flex-col gap-2 border-b border-slate-200 pb-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {(esObra
             ? TAB_IDS_OBRA

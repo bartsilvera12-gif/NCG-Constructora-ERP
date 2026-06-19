@@ -293,7 +293,7 @@ export default function ArchivosObra({ projectId }: { projectId: string }) {
                   onClick={() => eliminar(a)}
                   disabled={borrandoId === a.id}
                   title="Eliminar archivo"
-                  className="absolute right-1.5 top-1.5 rounded-full bg-white/90 backdrop-blur p-1 text-red-600 opacity-0 shadow-sm transition-opacity hover:bg-white group-hover:opacity-100 disabled:opacity-50"
+                  className="absolute right-1.5 top-1.5 rounded-full bg-white/90 backdrop-blur p-1.5 text-red-600 shadow-sm transition-opacity hover:bg-white disabled:opacity-50 sm:opacity-0 sm:group-hover:opacity-100"
                 >
                   {borrandoId === a.id ? (
                     <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 20 20" fill="none">
