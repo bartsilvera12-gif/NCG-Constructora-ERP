@@ -706,7 +706,7 @@ function renderPresupuesto(opts: {
     </div>` : ""}
   </div>
 
-  ${imagenes.length > 0 ? `
+  ${(!isFactura && imagenes.length > 0) ? `
   <div class="img-sheet">
     <h2>Imágenes adjuntas</h2>
     <div class="img-grid">
