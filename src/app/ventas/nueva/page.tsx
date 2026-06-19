@@ -305,7 +305,7 @@ export default function NuevaVentaPage() {
       if (!esPresupuesto) {
         // Solo ventas reales generan ticket/comandas para imprimir.
         try {
-          window.open(`/api/ventas/${resultado.venta.id}/ticket?mode=comandas&auto=1`, "_blank", "noopener");
+          window.open(`/api/ventas/${resultado.venta.id}/ticket?auto=1`, "_blank", "noopener");
         } catch {}
       }
       if (esObra) {

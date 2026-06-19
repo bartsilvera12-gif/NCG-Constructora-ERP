@@ -394,15 +394,7 @@ export default function VentasPage() {
                         />
                       </td>
                       <td className="py-4 text-center align-middle">
-                        <a
-                          href={`/api/ventas/${v.id}/ticket?mode=comandas`}
-                          target="_blank"
-                          rel="noopener"
-                          className="inline-flex items-center justify-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors"
-                          title="Abrir comandas + ticket cliente"
-                        >
-                          Imprimir
-                        </a>
+                        <ImprimirFacturaMenu ventaId={v.id} />
                       </td>
                     </tr>
                   );
@@ -416,6 +408,63 @@ export default function VentasPage() {
 
       {/* FAB mobile: acceso 1-tap a "+ Nueva venta" desde cualquier scroll position */}
       <MobileFab href="/ventas/nueva" label="Nueva venta" />
+    </div>
+  );
+}
+
+const IDIOMAS_FACTURA: Array<{ code: "es" | "en" | "fr" | "it"; label: string }> = [
+  { code: "es", label: "Español" },
+  { code: "en", label: "English" },
+  { code: "fr", label: "Français" },
+  { code: "it", label: "Italiano" },
+];
+
+function ImprimirFacturaMenu({ ventaId }: { ventaId: string }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [open]);
+  return (
+    <div className="relative inline-block text-left" onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors"
+        title="Imprimir factura A4"
+      >
+        Imprimir
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+          <path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute right-0 z-20 mt-1 w-44 rounded-md border border-slate-200 bg-white shadow-lg ring-1 ring-black/5">
+          {IDIOMAS_FACTURA.map((i) => (
+            <a
+              key={i.code}
+              href={`/api/ventas/${ventaId}/ticket?lang=${i.code}`}
+              target="_blank"
+              rel="noopener"
+              onClick={() => setOpen(false)}
+              className="block px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 first:rounded-t-md"
+            >
+              Factura · {i.label}
+            </a>
+          ))}
+          <a
+            href={`/api/ventas/${ventaId}/ticket?mode=comandas`}
+            target="_blank"
+            rel="noopener"
+            onClick={() => setOpen(false)}
+            className="block border-t border-slate-100 px-3 py-2 text-left text-xs text-slate-500 hover:bg-slate-50 last:rounded-b-md"
+          >
+            Ticket / comandas
+          </a>
+        </div>
+      )}
     </div>
   );
 }

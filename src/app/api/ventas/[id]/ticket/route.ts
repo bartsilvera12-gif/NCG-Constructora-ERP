@@ -119,6 +119,7 @@ const LOCALE_BY_LANG: Record<Lang, string> = {
 const I18N: Record<Lang, Record<string, string>> = {
   es: {
     num_presupuesto: "Presupuesto número",
+    num_factura: "Factura número",
     fecha_lbl: "Fecha",
     hoja_lbl: "Hoja nº",
     hoja_de: "de",
@@ -133,8 +134,11 @@ const I18N: Record<Lang, Record<string, string>> = {
     nif_lbl: "N.I.F.",
     tel_lbl: "Tfno.",
     email_lbl: "E-mail.",
+    forma_pago_lbl: "Forma de pago",
     subtitle: "Presupuesto de obra",
+    subtitle_factura: "Factura",
     tag: "PRESUPUESTO",
+    tag_factura: "FACTURA",
     emitido: "Emitido",
     valido_hasta: "Válido hasta",
     cliente: "Cliente",
@@ -167,6 +171,7 @@ const I18N: Record<Lang, Record<string, string>> = {
   },
   en: {
     num_presupuesto: "Quote number",
+    num_factura: "Invoice number",
     fecha_lbl: "Date",
     hoja_lbl: "Page",
     hoja_de: "of",
@@ -181,8 +186,11 @@ const I18N: Record<Lang, Record<string, string>> = {
     nif_lbl: "Tax ID",
     tel_lbl: "Phone",
     email_lbl: "Email",
+    forma_pago_lbl: "Payment method",
     subtitle: "Construction quote",
+    subtitle_factura: "Invoice",
     tag: "QUOTE",
+    tag_factura: "INVOICE",
     emitido: "Issued",
     valido_hasta: "Valid until",
     cliente: "Client",
@@ -215,6 +223,7 @@ const I18N: Record<Lang, Record<string, string>> = {
   },
   fr: {
     num_presupuesto: "Devis numéro",
+    num_factura: "Facture numéro",
     fecha_lbl: "Date",
     hoja_lbl: "Page",
     hoja_de: "sur",
@@ -229,8 +238,11 @@ const I18N: Record<Lang, Record<string, string>> = {
     nif_lbl: "N° fiscal",
     tel_lbl: "Tél.",
     email_lbl: "E-mail",
+    forma_pago_lbl: "Modalités de paiement",
     subtitle: "Devis de travaux",
+    subtitle_factura: "Facture",
     tag: "DEVIS",
+    tag_factura: "FACTURE",
     emitido: "Émis le",
     valido_hasta: "Valable jusqu'au",
     cliente: "Client",
@@ -263,6 +275,7 @@ const I18N: Record<Lang, Record<string, string>> = {
   },
   it: {
     num_presupuesto: "Preventivo numero",
+    num_factura: "Fattura numero",
     fecha_lbl: "Data",
     hoja_lbl: "Pagina",
     hoja_de: "di",
@@ -277,8 +290,11 @@ const I18N: Record<Lang, Record<string, string>> = {
     nif_lbl: "P. IVA",
     tel_lbl: "Tel.",
     email_lbl: "E-mail",
+    forma_pago_lbl: "Modalità di pagamento",
     subtitle: "Preventivo lavori",
+    subtitle_factura: "Fattura",
     tag: "PREVENTIVO",
+    tag_factura: "FATTURA",
     emitido: "Emesso il",
     valido_hasta: "Valido fino al",
     cliente: "Cliente",
@@ -443,9 +459,11 @@ function renderPresupuesto(opts: {
   cliente: ClienteLite | null;
   lang: Lang;
   emisor: Emisor;
+  kind?: "presupuesto" | "factura";
 }): string {
-  const { venta, items, cliente, lang, emisor } = opts;
+  const { venta, items, cliente, lang, emisor, kind = "presupuesto" } = opts;
   const EMISOR = emisor;
+  const isFactura = kind === "factura";
   const t = I18N[lang];
   const meta = venta.presupuesto_meta ?? {};
 
@@ -589,6 +607,8 @@ function renderPresupuesto(opts: {
   .totales .iva-pct, .totales .irpf-pct { display: inline-block; min-width: 38px; text-align: left; }
   .totales .iva-cell, .totales .irpf-cell { display: flex; justify-content: space-between; gap: 8px; }
 
+  .forma-pago-box { margin-top: 16px; padding: 8px 12px; border: 1px solid var(--line); font-size: 11px; color: var(--ink); }
+
   .actions { max-width: 210mm; margin: 0 auto 30px; text-align: right; padding: 0 14mm; }
   .actions button { padding: 9px 18px; font-size: 13px; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 6px; font-weight: 600; }
   .actions button:hover { opacity: .9; }
@@ -627,7 +647,7 @@ function renderPresupuesto(opts: {
     </div>
 
     <div class="meta-line">
-      <div class="left">${escapeHtml(t.num_presupuesto)}: ${escapeHtml(venta.numero_control)}</div>
+      <div class="left">${escapeHtml(isFactura ? t.num_factura : t.num_presupuesto)}: ${escapeHtml(venta.numero_control)}</div>
       <div class="mid">${escapeHtml(t.fecha_lbl)}: ${formatFechaCorta(venta.fecha, lang)}</div>
       <div class="right">${escapeHtml(t.hoja_lbl)}: 1 ${escapeHtml(t.hoja_de)} 1</div>
     </div>
@@ -658,6 +678,11 @@ function renderPresupuesto(opts: {
       <div class="val irpf-cell"><span class="irpf-pct">0%</span><span>0,00</span></div>
       <div class="val total">${formatNumLang(totalGeneral, lang)}</div>
     </div>
+
+    ${isFactura && (formaPago || venta.metodo_pago) ? `
+    <div class="forma-pago-box">
+      ${escapeHtml(t.forma_pago_lbl)}: ${escapeHtml(formaPago ?? metodoPagoLabel(venta.metodo_pago))}
+    </div>` : ""}
   </div>
 
   <div class="actions">
@@ -804,8 +829,11 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
   if (iQ.error) return new NextResponse(`Error items: ${iQ.error.message}`, { status: 500 });
   const itemsRaw = (iQ.data ?? []) as unknown as ItemRow[];
 
-  // ── Branch: presupuesto → layout A4 profesional ────────────────────────────
-  if (venta.tipo_documento === "presupuesto") {
+  // ── Branch: presupuesto o venta-factura (A4) ───────────────────────────────
+  // Por defecto las ventas también imprimen factura A4. Solo `mode=comandas`
+  // mantiene el ticket térmico de cocina/POS.
+  const esPresupuesto = venta.tipo_documento === "presupuesto";
+  if (esPresupuesto || !modeComandas) {
     let cliente: ClienteLite | null = null;
     if (venta.cliente_id) {
       const cQ = await ctx.supabase
@@ -838,7 +866,7 @@ export async function GET(request: NextRequest, ctxParams: { params: Promise<{ i
         };
       }
     } catch {}
-    const html = renderPresupuesto({ venta, items: itemsRaw, cliente, lang, emisor });
+    const html = renderPresupuesto({ venta, items: itemsRaw, cliente, lang, emisor, kind: esPresupuesto ? "presupuesto" : "factura" });
     return new NextResponse(html, {
       status: 200,
       headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
