@@ -17,6 +17,11 @@ type Fichaje = {
   hora_salida: string | null;
   horas: number;
   observacion: string | null;
+  entrada_lat: number | null;
+  entrada_lng: number | null;
+  salida_lat: number | null;
+  salida_lng: number | null;
+  marcado_kiosco: boolean | null;
 };
 
 function fmtFecha(iso: string): string {
@@ -159,14 +164,15 @@ export default function ControlHorarioPage() {
                 <th className="px-4 py-3 font-semibold">Entrada</th>
                 <th className="px-4 py-3 font-semibold">Salida</th>
                 <th className="px-4 py-3 font-semibold text-right">Horas</th>
+                <th className="px-4 py-3 font-semibold hidden md:table-cell">Ubicación</th>
                 <th className="px-4 py-3 font-semibold hidden lg:table-cell">Obs.</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={7} className="py-10 text-center text-gray-400">Cargando…</td></tr>
+                <tr><td colSpan={8} className="py-10 text-center text-gray-400">Cargando…</td></tr>
               ) : fichajes.length === 0 ? (
-                <tr><td colSpan={7} className="py-10 text-center text-gray-400">Sin fichajes registrados</td></tr>
+                <tr><td colSpan={8} className="py-10 text-center text-gray-400">Sin fichajes registrados</td></tr>
               ) : (
                 fichajes.map((f) => (
                   <tr key={f.id} className="hover:bg-[#4FAEB2]/[0.04]">
@@ -176,6 +182,7 @@ export default function ControlHorarioPage() {
                     <td className="px-4 py-2.5 text-gray-700 tabular-nums">{f.hora_entrada ?? "—"}</td>
                     <td className="px-4 py-2.5 text-gray-700 tabular-nums">{f.hora_salida ?? "—"}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-800">{Number(f.horas).toFixed(1)}</td>
+                    <td className="px-4 py-2.5 hidden md:table-cell"><UbicacionFichaje f={f} /></td>
                     <td className="px-4 py-2.5 text-gray-500 text-xs hidden lg:table-cell">{f.observacion ?? "—"}</td>
                   </tr>
                 ))
@@ -190,6 +197,45 @@ export default function ControlHorarioPage() {
 
 const inputCls = "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-[#4FAEB2]/50 focus:ring-2 focus:ring-[#4FAEB2]/30";
 const lblCls = "block text-xs font-medium text-slate-600 mb-1";
+
+/**
+ * Muestra hasta dos pines (entrada/salida) con link a Google Maps. Solo se
+ * llena cuando el empleado fichó desde el kiosco y autorizó geolocalización;
+ * en fichajes cargados a mano queda en "—".
+ */
+function UbicacionFichaje({ f }: { f: Fichaje }) {
+  const entrada = f.entrada_lat != null && f.entrada_lng != null
+    ? { lat: f.entrada_lat, lng: f.entrada_lng } : null;
+  const salida = f.salida_lat != null && f.salida_lng != null
+    ? { lat: f.salida_lat, lng: f.salida_lng } : null;
+  if (!entrada && !salida) return <span className="text-xs text-slate-300">—</span>;
+  const link = (lat: number, lng: number) =>
+    `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  return (
+    <div className="flex flex-col gap-0.5 text-xs">
+      {entrada && (
+        <a href={link(entrada.lat, entrada.lng)} target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-emerald-700 hover:underline"
+          title={`Entrada: ${entrada.lat.toFixed(5)}, ${entrada.lng.toFixed(5)}`}>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3 w-3">
+            <path fillRule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 0 0 .281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 1 0 3 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 0 0 2.273 1.765 11.842 11.842 0 0 0 .976.544l.062.029.018.008.006.003ZM10 11.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5Z" clipRule="evenodd" />
+          </svg>
+          Entrada
+        </a>
+      )}
+      {salida && (
+        <a href={link(salida.lat, salida.lng)} target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-rose-700 hover:underline"
+          title={`Salida: ${salida.lat.toFixed(5)}, ${salida.lng.toFixed(5)}`}>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3 w-3">
+            <path fillRule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 0 0 .281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 1 0 3 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 0 0 2.273 1.765 11.842 11.842 0 0 0 .976.544l.062.029.018.008.006.003ZM10 11.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5Z" clipRule="evenodd" />
+          </svg>
+          Salida
+        </a>
+      )}
+    </div>
+  );
+}
 
 /**
  * Caja con el link público del kiosco de fichaje. Mostrar el link entero

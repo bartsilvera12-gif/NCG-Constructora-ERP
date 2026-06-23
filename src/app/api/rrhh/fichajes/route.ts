@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await ctx.supabase
       .from("empleado_fichajes")
-      .select("id, empleado_id, fecha, hora_entrada, hora_salida, horas, observacion, empleados:empleado_id(nombre, cargo)")
+      .select("id, empleado_id, fecha, hora_entrada, hora_salida, horas, observacion, entrada_lat, entrada_lng, salida_lat, salida_lng, marcado_kiosco, empleados:empleado_id(nombre, cargo)")
       .eq("empresa_id", ctx.auth.empresa_id)
       .gte("fecha", desde)
       .lte("fecha", hasta)
