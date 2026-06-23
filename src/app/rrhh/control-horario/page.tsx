@@ -226,12 +226,16 @@ function KioscoLinkCard() {
     } finally { setBusy(false); }
   }
 
+  // El link "corto" /fichar (sin token) resuelve la empresa solo y, si no
+  // hay token activo, lo genera en el momento. Es el que recomendamos para
+  // compartir; el token largo solo se muestra si se quiere blindar la URL.
+  const urlCorto = typeof window !== "undefined" ? `${window.location.origin}/fichar` : null;
   const url = token && typeof window !== "undefined" ? `${window.location.origin}/fichar/${token}` : null;
 
-  async function copiar() {
-    if (!url) return;
+  async function copiar(texto: string | null) {
+    if (!texto) return;
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(texto);
       setCopiado(true);
       window.setTimeout(() => setCopiado(false), 1500);
     } catch {
@@ -256,40 +260,60 @@ function KioscoLinkCard() {
 
           {loading ? (
             <p className="mt-3 text-xs text-slate-500">Cargando…</p>
-          ) : !token ? (
-            <div className="mt-3">
-              <p className="text-xs text-slate-600">Todavía no hay link generado.</p>
-              <button type="button" disabled={busy} onClick={() => void regenerar()}
-                className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-3 py-2 text-xs font-medium text-white shadow-sm hover:bg-[#3F8E91] disabled:opacity-50">
-                {busy ? "Generando…" : "Generar link"}
-              </button>
-            </div>
           ) : (
-            <div className="mt-3 space-y-2">
-              <div className="flex items-center gap-2">
-                <input
-                  readOnly
-                  value={url ?? ""}
-                  className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs tabular-nums text-slate-700"
-                  onFocus={(e) => e.target.select()}
-                />
-                <button type="button" onClick={() => void copiar()}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                  {copiado ? "✓ Copiado" : "Copiar"}
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {url && (
-                  <a href={url} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            <div className="mt-3 space-y-3">
+              <div>
+                <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Link para compartir</label>
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    readOnly
+                    value={urlCorto ?? ""}
+                    className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs tabular-nums text-slate-700"
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <button type="button" onClick={() => void copiar(urlCorto)}
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                    {copiado ? "✓ Copiado" : "Copiar"}
+                  </button>
+                </div>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Funciona sin generar nada: al abrirlo, resuelve la empresa solo. Compartilo con los empleados.
+                </p>
+                {urlCorto && (
+                  <a href={urlCorto} target="_blank" rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
                     Abrir en otra pestaña ↗
                   </a>
                 )}
-                <button type="button" onClick={() => setConfirmar(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50">
-                  Regenerar (invalida el anterior)
-                </button>
               </div>
+
+              <details className="rounded-lg border border-slate-200 bg-white">
+                <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-slate-700">
+                  Opciones avanzadas (link blindado por token)
+                </summary>
+                <div className="space-y-2 border-t border-slate-100 px-3 py-3">
+                  {!token ? (
+                    <p className="text-xs text-slate-600">Aún no hay un token blindado. El link corto de arriba ya funciona; este es solo si querés una URL que se pueda revocar puntualmente.</p>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <input
+                        readOnly
+                        value={url ?? ""}
+                        className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs tabular-nums text-slate-700"
+                        onFocus={(e) => e.target.select()}
+                      />
+                      <button type="button" onClick={() => void copiar(url)}
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                        Copiar
+                      </button>
+                    </div>
+                  )}
+                  <button type="button" onClick={() => setConfirmar(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50">
+                    {token ? "Regenerar token (invalida el anterior)" : "Generar token"}
+                  </button>
+                </div>
+              </details>
             </div>
           )}
         </div>
