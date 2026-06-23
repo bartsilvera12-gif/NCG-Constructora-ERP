@@ -101,11 +101,24 @@ export default function FicharKioscoPage({ params }: { params: Promise<{ token: 
     setEnviando(tipo);
     setEstado({ tipo: "form" });
     const coords = await obtenerCoords();
+    // Hora y fecha locales del dispositivo del empleado — evita el desfase
+    // por timezone del servidor (UTC en Vercel vs PY/ES del usuario).
+    const ahora = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const fechaLocal = `${ahora.getFullYear()}-${pad(ahora.getMonth() + 1)}-${pad(ahora.getDate())}`;
+    const horaLocal  = `${pad(ahora.getHours())}:${pad(ahora.getMinutes())}`;
     try {
       const r = await fetch(`/api/public/fichar/${encodeURIComponent(token)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ documento: doc, tipo, lat: coords?.lat ?? null, lng: coords?.lng ?? null }),
+        body: JSON.stringify({
+          documento: doc,
+          tipo,
+          lat: coords?.lat ?? null,
+          lng: coords?.lng ?? null,
+          fecha: fechaLocal,
+          hora: horaLocal,
+        }),
       });
       const j = (await r.json().catch(() => ({}))) as { success?: boolean; data?: { nombre?: string; hora?: string; fecha?: string }; error?: string };
       if (!r.ok || !j.success) {

@@ -92,6 +92,14 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ token:
     const lat = body.lat != null && body.lat !== "" ? Number(body.lat) : null;
     const lng = body.lng != null && body.lng !== "" ? Number(body.lng) : null;
 
+    // El cliente manda su fecha/hora local — el servidor suele estar en UTC
+    // (Vercel) y `new Date().getHours()` daría 3-4 hs de mas. Validamos
+    // formato; si llega vacío caemos al reloj del server (peor caso).
+    const fechaCli = typeof body.fecha === "string" ? body.fecha.trim() : "";
+    const horaCli  = typeof body.hora  === "string" ? body.hora.trim()  : "";
+    const fechaValida = /^\d{4}-\d{2}-\d{2}$/.test(fechaCli) ? fechaCli : null;
+    const horaValida  = /^\d{2}:\d{2}$/.test(horaCli) ? horaCli : null;
+
     // Empleado activo de esa empresa cuyo documento coincida (case insensitive,
     // ignorando espacios y puntos para tolerar "12.345.678" vs "12345678").
     const norm = (s: string) => s.replace(/[\s.\-]/g, "").toLowerCase();
@@ -111,8 +119,8 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ token:
     }
 
     const ahora = new Date();
-    const fecha = fechaLocalISO(ahora);
-    const hora = hhmm(ahora);
+    const fecha = fechaValida ?? fechaLocalISO(ahora);
+    const hora = horaValida ?? hhmm(ahora);
 
     // Upsert por (empleado_id, fecha).
     const existing = await sb
