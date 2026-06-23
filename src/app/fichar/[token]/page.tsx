@@ -61,6 +61,37 @@ export default function FicharKioscoPage({ params }: { params: Promise<{ token: 
     return () => window.clearInterval(id);
   }, []);
 
+  // Auto-reset del estado "ok": dejamos la confirmación 5s a la vista y
+  // volvemos al formulario solo. Así el próximo empleado abre el link y ya
+  // tiene la pantalla lista, sin tener que tocar "Marcar a otro empleado".
+  const [autoReset, setAutoReset] = useState(5);
+  useEffect(() => {
+    if (estado.tipo !== "ok") return;
+    setAutoReset(5);
+    const tick = window.setInterval(() => {
+      setAutoReset((s) => {
+        if (s <= 1) {
+          setEstado({ tipo: "form" });
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(tick);
+  }, [estado.tipo]);
+
+  // Si el usuario vuelve a la pestaña tras haber dejado el link abierto,
+  // reseteamos al form. Cubre el caso "varias personas comparten el celular".
+  useEffect(() => {
+    function onVis() {
+      if (document.visibilityState === "visible") {
+        setEstado((prev) => (prev.tipo === "ok" ? { tipo: "form" } : prev));
+      }
+    }
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
   async function marcar(tipo: "entrada" | "salida") {
     const doc = documento.trim();
     if (!doc) {
@@ -148,6 +179,9 @@ export default function FicharKioscoPage({ params }: { params: Promise<{ token: 
               >
                 Marcar a otro empleado
               </button>
+              <p className="mt-2 text-[11px] text-slate-400">
+                Volvemos solos en {autoReset}s…
+              </p>
             </div>
           ) : (
             <>
