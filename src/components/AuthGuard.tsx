@@ -15,6 +15,8 @@ import {
 } from "@/lib/modulos/route-slug-map";
 
 const PUBLIC_ROUTES = ["/login"];
+// Prefijos publicos: cualquier path que empiece asi se sirve sin login.
+const PUBLIC_PREFIXES = ["/fichar"];
 
 type ModuleAccess = {
   superAdmin: boolean;
@@ -44,7 +46,10 @@ function AuthGuardInner({ children }: { children: React.ReactNode }) {
   const { sidebarReady } = useBoot();
 
   const isPublic = useMemo(
-    () => !!(pathname && PUBLIC_ROUTES.includes(pathname)),
+    () =>
+      !!pathname &&
+      (PUBLIC_ROUTES.includes(pathname) ||
+        PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))),
     [pathname]
   );
 

@@ -89,6 +89,9 @@ export default function ControlHorarioPage() {
 
       {err && <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{err}</div>}
 
+      <KioscoLinkCard />
+
+
       {empleados.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
           Cargá primero empleados desde <a href="/rrhh/empleados" className="font-medium text-[#3F8E91] underline">RRHH → Empleados</a>.
@@ -187,3 +190,129 @@ export default function ControlHorarioPage() {
 
 const inputCls = "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-[#4FAEB2]/50 focus:ring-2 focus:ring-[#4FAEB2]/30";
 const lblCls = "block text-xs font-medium text-slate-600 mb-1";
+
+/**
+ * Caja con el link público del kiosco de fichaje. Mostrar el link entero
+ * facilita compartirlo por WhatsApp o pegarlo en un cartel; "Regenerar" lo
+ * rota si se filtró.
+ */
+function KioscoLinkCard() {
+  const [token, setToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [copiado, setCopiado] = useState(false);
+  const [confirmar, setConfirmar] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const cargar = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetchWithSupabaseSession("/api/rrhh/fichar-token", { cache: "no-store" });
+      const j = (await r.json().catch(() => ({}))) as { success?: boolean; data?: { token: string | null }; error?: string };
+      if (r.ok && j.success) { setToken(j.data?.token ?? null); setErr(null); }
+      else setErr(j.error ?? "No se pudo cargar el link");
+    } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { void cargar(); }, [cargar]);
+
+  async function regenerar() {
+    setBusy(true);
+    try {
+      const r = await fetchWithSupabaseSession("/api/rrhh/fichar-token", { method: "POST" });
+      const j = (await r.json().catch(() => ({}))) as { success?: boolean; data?: { token: string }; error?: string };
+      if (r.ok && j.success) { setToken(j.data?.token ?? null); setErr(null); setConfirmar(false); }
+      else setErr(j.error ?? "No se pudo generar el token");
+    } finally { setBusy(false); }
+  }
+
+  const url = token && typeof window !== "undefined" ? `${window.location.origin}/fichar/${token}` : null;
+
+  async function copiar() {
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiado(true);
+      window.setTimeout(() => setCopiado(false), 1500);
+    } catch {
+      setErr("No se pudo copiar al portapapeles");
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-[#4FAEB2]/30 bg-[#E5F4F4]/40 p-4">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#4FAEB2] text-white">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+          </svg>
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-semibold text-slate-900">Link público de fichaje</h3>
+          <p className="mt-0.5 text-xs text-slate-600">
+            Compartilo con los empleados. Marcan su entrada/salida tipeando su DNI; no necesitan login.
+          </p>
+          {err && <p className="mt-2 text-xs text-rose-600">{err}</p>}
+
+          {loading ? (
+            <p className="mt-3 text-xs text-slate-500">Cargando…</p>
+          ) : !token ? (
+            <div className="mt-3">
+              <p className="text-xs text-slate-600">Todavía no hay link generado.</p>
+              <button type="button" disabled={busy} onClick={() => void regenerar()}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[#4FAEB2] px-3 py-2 text-xs font-medium text-white shadow-sm hover:bg-[#3F8E91] disabled:opacity-50">
+                {busy ? "Generando…" : "Generar link"}
+              </button>
+            </div>
+          ) : (
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  readOnly
+                  value={url ?? ""}
+                  className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs tabular-nums text-slate-700"
+                  onFocus={(e) => e.target.select()}
+                />
+                <button type="button" onClick={() => void copiar()}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                  {copiado ? "✓ Copiado" : "Copiar"}
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {url && (
+                  <a href={url} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                    Abrir en otra pestaña ↗
+                  </a>
+                )}
+                <button type="button" onClick={() => setConfirmar(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50">
+                  Regenerar (invalida el anterior)
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {confirmar && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4" onClick={() => !busy && setConfirmar(false)}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h4 className="text-sm font-semibold text-slate-900">Regenerar link</h4>
+            <p className="mt-2 text-xs text-slate-600">
+              El link anterior dejará de funcionar inmediatamente. ¿Continuar?
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" disabled={busy} onClick={() => setConfirmar(false)}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs">Cancelar</button>
+              <button type="button" disabled={busy} onClick={() => void regenerar()}
+                className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700 disabled:opacity-50">
+                {busy ? "Generando…" : "Sí, regenerar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}

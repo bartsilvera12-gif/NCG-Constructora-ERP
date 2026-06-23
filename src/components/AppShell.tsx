@@ -6,10 +6,16 @@ import Sidebar from "./layout/Sidebar";
 import Header from "./layout/Header";
 
 const STANDALONE_ROUTES = ["/login"];
+// Prefijos completos que también deben renderizar sin sidebar/header (kiosco
+// público de fichaje y futuras paginas standalone).
+const STANDALONE_PREFIXES = ["/fichar"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isStandalone = pathname && STANDALONE_ROUTES.includes(pathname);
+  const isStandalone =
+    !!pathname &&
+    (STANDALONE_ROUTES.includes(pathname) ||
+      STANDALONE_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`)));
 
   if (isStandalone) {
     return <>{children}</>;
