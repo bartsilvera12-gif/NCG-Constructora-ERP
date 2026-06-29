@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import PageHeader from "@/components/ui/PageHeader";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
@@ -65,8 +66,14 @@ export default function NominaPage() {
         backHref="/rrhh"
         backLabel="RRHH"
         actions={
-          <input type="month" value={mes} onChange={(e) => setMes(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" />
+          <div className="flex items-center gap-2">
+            <input type="month" value={mes} onChange={(e) => setMes(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" />
+            <Link href="/rrhh/nomina/recibos"
+              className="rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-semibold text-white hover:bg-[#3F9EA2]">
+              Recibos PDF
+            </Link>
+          </div>
         }
       />
 
