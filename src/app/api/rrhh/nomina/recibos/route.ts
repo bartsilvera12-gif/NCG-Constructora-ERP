@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     const [empresaQ, empleadoQ] = await Promise.all([
       ctx.supabase
         .from("empresas")
-        .select("nombre, nif, inscripcion_ss, cnae, centro_trabajo_direccion")
+        .select("nombre_empresa, nif, inscripcion_ss, cnae, centro_trabajo_direccion")
         .eq("id", ctx.auth.empresa_id)
         .maybeSingle(),
       ctx.supabase
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
       periodo_hasta: periodoHasta,
       total_dias: Math.trunc(num(body.total_dias)) || 30,
       dias_cotizados: Math.trunc(num(body.dias_cotizados)) || 30,
-      empresa_nombre_snapshot: (empresa as Record<string, unknown>).nombre ?? null,
+      empresa_nombre_snapshot: (empresa as Record<string, unknown>).nombre_empresa ?? null,
       empresa_nif_snapshot: (empresa as Record<string, unknown>).nif ?? null,
       empresa_inscripcion_ss_snapshot: (empresa as Record<string, unknown>).inscripcion_ss ?? null,
       empresa_cnae_snapshot: (empresa as Record<string, unknown>).cnae ?? null,

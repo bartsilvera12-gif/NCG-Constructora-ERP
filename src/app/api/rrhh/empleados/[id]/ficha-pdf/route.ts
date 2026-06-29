@@ -23,16 +23,21 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         .maybeSingle(),
       ctx.supabase
         .from("empresas")
-        .select("nombre, nif, inscripcion_ss, cnae, centro_trabajo_direccion")
+        .select("nombre_empresa, nif, inscripcion_ss, cnae, centro_trabajo_direccion")
         .eq("id", ctx.auth.empresa_id)
         .maybeSingle(),
     ]);
     if (empQ.error) return NextResponse.json(errorResponse(empQ.error.message), { status: 400 });
     if (!empQ.data) return NextResponse.json(errorResponse("Empleado no encontrado"), { status: 404 });
 
-    const empresa = (empresaQ.data ?? {
-      nombre: null, nif: null, inscripcion_ss: null, cnae: null, centro_trabajo_direccion: null,
-    }) as FichaEmpresa;
+    const empresaRow = empresaQ.data as { nombre_empresa?: string | null; nif?: string | null; inscripcion_ss?: string | null; cnae?: string | null; centro_trabajo_direccion?: string | null } | null;
+    const empresa: FichaEmpresa = {
+      nombre: empresaRow?.nombre_empresa ?? null,
+      nif: empresaRow?.nif ?? null,
+      inscripcion_ss: empresaRow?.inscripcion_ss ?? null,
+      cnae: empresaRow?.cnae ?? null,
+      centro_trabajo_direccion: empresaRow?.centro_trabajo_direccion ?? null,
+    };
 
     const bytes = await buildFichaPdf(empresa, empQ.data as unknown as FichaEmpleado);
 
