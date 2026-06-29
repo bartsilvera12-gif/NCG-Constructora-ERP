@@ -317,6 +317,14 @@ export default function EmpleadosPage() {
                       >
                         Editar
                       </button>
+                      <a
+                        href={`/api/rrhh/empleados/${e.id}/ficha-pdf`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center justify-center min-h-[40px] rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors"
+                      >
+                        PDF
+                      </a>
                       <button
                         type="button"
                         onClick={() => void toggleActivo(e)}
