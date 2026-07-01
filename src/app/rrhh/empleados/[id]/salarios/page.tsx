@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +43,8 @@ export default function SalariosEmpleadoPage() {
   const [permitidoEditar, setPermitidoEditar] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<Salario | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [form, setForm] = useState({
     fecha_vigencia_desde: new Date().toISOString().slice(0, 10),
@@ -119,10 +122,13 @@ export default function SalariosEmpleadoPage() {
     setForm({ ...form, salario_bruto: "", salario_neto: "", plus_peligrosidad: "", plus_prl: "", coste_empresa: "", otros_pluses_txt: "", deducciones_txt: "", observaciones: "" });
   };
 
-  const eliminar = async (id: string) => {
-    if (!confirm("¿Eliminar este tramo salarial?")) return;
-    const r = await fetchWithSupabaseSession(`/api/rrhh/empleados/${empleadoId}/salarios/${id}`, { method: "DELETE" });
-    if (r.ok) setItems((s) => s.filter((x) => x.id !== id));
+  const confirmarEliminar = async () => {
+    if (!confirmDelete) return;
+    setDeleting(true);
+    const r = await fetchWithSupabaseSession(`/api/rrhh/empleados/${empleadoId}/salarios/${confirmDelete.id}`, { method: "DELETE" });
+    setDeleting(false);
+    if (r.ok) setItems((s) => s.filter((x) => x.id !== confirmDelete.id));
+    setConfirmDelete(null);
   };
 
   const vigente = useMemo(() => {
@@ -248,7 +254,7 @@ export default function SalariosEmpleadoPage() {
                   <td className="px-4 py-2.5 text-slate-500 text-xs max-w-[220px] truncate">{s.observaciones ?? ""}</td>
                   {permitidoEditar && (
                     <td className="px-4 py-2.5 text-right">
-                      <button onClick={() => eliminar(s.id)}
+                      <button onClick={() => setConfirmDelete(s)}
                         className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs text-rose-700 hover:bg-rose-100">Eliminar</button>
                     </td>
                   )}
@@ -258,6 +264,17 @@ export default function SalariosEmpleadoPage() {
           </tbody>
         </table>
       </div>
+
+      <ConfirmModal
+        open={confirmDelete !== null}
+        title="Eliminar tramo salarial"
+        message={confirmDelete ? `¿Eliminar el tramo con vigencia desde ${confirmDelete.fecha_vigencia_desde}? Esta acción no se puede deshacer.` : undefined}
+        confirmLabel="Eliminar"
+        tone="danger"
+        loading={deleting}
+        onConfirm={confirmarEliminar}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,9 @@ export default function EspecialidadesPage() {
   const [err, setErr] = useState<string | null>(null);
   const [nombre, setNombre] = useState("");
   const [creating, setCreating] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<Especialidad | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const cargar = async () => {
     setLoading(true);
@@ -52,11 +56,17 @@ export default function EspecialidadesPage() {
     if (r.ok) cargar();
   };
 
-  const eliminar = async (it: Especialidad) => {
-    if (!confirm(`Eliminar "${it.nombre}"? Sólo funciona si no hay empleados asignados.`)) return;
-    const r = await fetchWithSupabaseSession(`/api/rrhh/especialidades/${it.id}`, { method: "DELETE" });
-    if (r.ok) cargar();
-    else { const j = await r.json().catch(() => ({})); alert(j.error ?? "No se pudo eliminar (¿tiene empleados asignados?)"); }
+  const confirmarEliminar = async () => {
+    if (!confirmDelete) return;
+    setDeleting(true);
+    const r = await fetchWithSupabaseSession(`/api/rrhh/especialidades/${confirmDelete.id}`, { method: "DELETE" });
+    setDeleting(false);
+    if (r.ok) { setConfirmDelete(null); setErrorMsg(null); cargar(); }
+    else {
+      const j = await r.json().catch(() => ({}));
+      setErrorMsg(j.error ?? "No se pudo eliminar (¿tiene empleados asignados?)");
+      setConfirmDelete(null);
+    }
   };
 
   return (
@@ -70,6 +80,10 @@ export default function EspecialidadesPage() {
       />
 
       {err && <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{err}</div>}
+      {errorMsg && <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900 flex items-center justify-between gap-3">
+        <span>{errorMsg}</span>
+        <button onClick={() => setErrorMsg(null)} className="text-rose-700 hover:text-rose-900 text-xs">×</button>
+      </div>}
 
       <div className="rounded-xl border border-slate-200 bg-white p-4">
         <h3 className="text-sm font-semibold text-slate-800">Añadir especialidad</h3>
@@ -115,7 +129,7 @@ export default function EspecialidadesPage() {
                     className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs hover:bg-slate-50">
                     {it.activo ? "Desactivar" : "Activar"}
                   </button>
-                  <button onClick={() => eliminar(it)}
+                  <button onClick={() => setConfirmDelete(it)}
                     className="ml-2 rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs text-rose-700 hover:bg-rose-100">
                     Eliminar
                   </button>
@@ -125,6 +139,17 @@ export default function EspecialidadesPage() {
           </tbody>
         </table>
       </div>
+
+      <ConfirmModal
+        open={confirmDelete !== null}
+        title="Eliminar especialidad"
+        message={confirmDelete ? `¿Eliminar la especialidad "${confirmDelete.nombre}"? Sólo funciona si no hay empleados con esta especialidad asignada.` : undefined}
+        confirmLabel="Eliminar"
+        tone="danger"
+        loading={deleting}
+        onConfirm={confirmarEliminar}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   );
 }

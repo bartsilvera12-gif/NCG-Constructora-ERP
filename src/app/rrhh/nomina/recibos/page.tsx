@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,8 @@ export default function RecibosPage() {
   const [showNew, setShowNew] = useState(false);
   const [creating, setCreating] = useState(false);
   const [nuevoEmpleadoId, setNuevoEmpleadoId] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; nombre: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const cargar = () => {
     setLoading(true);
@@ -89,9 +92,12 @@ export default function RecibosPage() {
     }
   };
 
-  const eliminar = async (id: string) => {
-    if (!confirm("¿Eliminar este recibo?")) return;
-    const r = await fetchWithSupabaseSession(`/api/rrhh/nomina/recibos/${id}`, { method: "DELETE" });
+  const confirmarEliminar = async () => {
+    if (!confirmDelete) return;
+    setDeleting(true);
+    const r = await fetchWithSupabaseSession(`/api/rrhh/nomina/recibos/${confirmDelete.id}`, { method: "DELETE" });
+    setDeleting(false);
+    setConfirmDelete(null);
     if (r.ok) cargar();
     else alert("No se pudo eliminar");
   };
@@ -178,7 +184,7 @@ export default function RecibosPage() {
                 <td className="px-4 py-2.5 text-right">
                   <a href={`/api/rrhh/nomina/recibos/${r.id}/pdf`} target="_blank" rel="noreferrer"
                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs hover:bg-slate-50">PDF</a>
-                  <button onClick={() => eliminar(r.id)}
+                  <button onClick={() => setConfirmDelete({ id: r.id, nombre: r.empleado_nombre_snapshot ?? "" })}
                     className="ml-2 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-xs text-rose-700 hover:bg-rose-100">
                     Eliminar
                   </button>
@@ -188,6 +194,17 @@ export default function RecibosPage() {
           </tbody>
         </table>
       </div>
+
+      <ConfirmModal
+        open={confirmDelete !== null}
+        title="Eliminar recibo"
+        message={confirmDelete ? `¿Eliminar el recibo de ${confirmDelete.nombre || "este empleado"}? Se borran también sus devengos y deducciones. Esta acción no se puede deshacer.` : undefined}
+        confirmLabel="Eliminar"
+        tone="danger"
+        loading={deleting}
+        onConfirm={confirmarEliminar}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   );
 }
