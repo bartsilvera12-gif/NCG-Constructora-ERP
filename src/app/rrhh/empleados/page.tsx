@@ -325,11 +325,12 @@ export default function EmpleadosPage() {
                     )}
                   </td>
                   <td className="px-5 py-3.5 text-right">
-                    <div className="inline-flex items-center justify-end gap-2">
+                    <div className="inline-flex items-center justify-end gap-1">
                       <button
                         type="button"
                         onClick={() => setEditando(e)}
-                        className="inline-flex items-center justify-center min-h-[40px] rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors"
+                        title="Editar"
+                        className="inline-flex items-center justify-center rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors"
                       >
                         Editar
                       </button>
@@ -337,20 +338,23 @@ export default function EmpleadosPage() {
                         href={`/api/rrhh/empleados/${e.id}/ficha-pdf`}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center justify-center min-h-[40px] rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors"
+                        title="Ficha PDF"
+                        className="inline-flex items-center justify-center rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors"
                       >
                         PDF
                       </a>
                       <Link
                         href={`/rrhh/empleados/${e.id}/salarios`}
-                        className="inline-flex items-center justify-center min-h-[40px] rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors"
+                        title="Historial salarial"
+                        className="inline-flex items-center justify-center rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors"
                       >
                         Salarios
                       </Link>
                       <button
                         type="button"
                         onClick={() => void toggleActivo(e)}
-                        className={`inline-flex items-center justify-center min-h-[40px] rounded-md border bg-white px-3 py-1.5 text-xs font-medium transition-colors ${
+                        title={e.activo ? "Desactivar" : "Activar"}
+                        className={`inline-flex items-center justify-center rounded-md border bg-white px-2 py-1 text-[11px] font-medium transition-colors ${
                           e.activo
                             ? "border-red-200 text-red-600 hover:border-red-300 hover:bg-red-50"
                             : "border-emerald-200 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50"
