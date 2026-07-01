@@ -46,6 +46,14 @@ type Empleado = {
   cobrar_con_cheque: boolean;
   excluir_liquidaciones: boolean;
   activo: boolean;
+  // Fase A
+  estado: string | null;
+  tipo_contrato: string | null;
+  jornada_laboral: string | null;
+  contacto_emergencia_nombre: string | null;
+  contacto_emergencia_telefono: string | null;
+  contacto_emergencia_parentesco: string | null;
+  observaciones: string | null;
 };
 
 const FORM_INICIAL = {
@@ -84,6 +92,14 @@ const FORM_INICIAL = {
   numero_cuenta: "",
   cobrar_con_cheque: false,
   excluir_liquidaciones: false,
+  // Fase A
+  estado: "activo",
+  tipo_contrato: "",
+  jornada_laboral: "",
+  contacto_emergencia_nombre: "",
+  contacto_emergencia_telefono: "",
+  contacto_emergencia_parentesco: "",
+  observaciones: "",
 };
 
 const ESTADO_CIVIL_OPTS = ["soltero/a", "casado/a", "divorciado/a", "viudo/a", "unión libre"];
@@ -325,6 +341,12 @@ export default function EmpleadosPage() {
                       >
                         PDF
                       </a>
+                      <Link
+                        href={`/rrhh/empleados/${e.id}/salarios`}
+                        className="inline-flex items-center justify-center min-h-[40px] rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors"
+                      >
+                        Salarios
+                      </Link>
                       <button
                         type="button"
                         onClick={() => void toggleActivo(e)}
@@ -415,6 +437,14 @@ function empleadoToForm(e: Empleado): FormEmpleado {
     cobrar_con_cheque: !!e.cobrar_con_cheque,
     excluir_liquidaciones: !!e.excluir_liquidaciones,
     activo: e.activo,
+    // Fase A
+    estado: e.estado ?? (e.activo ? "activo" : "baja"),
+    tipo_contrato: e.tipo_contrato ?? "",
+    jornada_laboral: e.jornada_laboral ?? "",
+    contacto_emergencia_nombre: e.contacto_emergencia_nombre ?? "",
+    contacto_emergencia_telefono: e.contacto_emergencia_telefono ?? "",
+    contacto_emergencia_parentesco: e.contacto_emergencia_parentesco ?? "",
+    observaciones: e.observaciones ?? "",
   };
 }
 
@@ -462,6 +492,7 @@ function EditarEmpleadoModal({
         <form onSubmit={handleSubmit} className="space-y-6 p-5">
           {err && <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{err}</div>}
           <ResumenVacacionesEmpleado empleadoId={empleado.id} />
+          <EspecialidadesEmpleado empleadoId={empleado.id} />
           <DocumentacionEmpleado empleadoId={empleado.id} />
           <EmpleadoFormFields form={form} setForm={setForm} editMode supervisores={supervisores} />
           <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
@@ -660,6 +691,44 @@ function EmpleadoFormFields({
   }
   return (
     <>
+      <Section titulo="Estado laboral">
+        <Field label="Estado">
+          <select className={inputCls} value={form.estado}
+            onChange={(e) => set("estado", e.target.value)}>
+            <option value="activo">Activo</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="suspendido">Suspendido</option>
+            <option value="baja">Baja</option>
+          </select>
+        </Field>
+        <Field label="Tipo de contrato">
+          <input className={inputCls} value={form.tipo_contrato}
+            onChange={(e) => set("tipo_contrato", e.target.value)}
+            placeholder="Ej. indefinido, temporal, obra o servicio" />
+        </Field>
+        <Field label="Jornada laboral">
+          <input className={inputCls} value={form.jornada_laboral}
+            onChange={(e) => set("jornada_laboral", e.target.value)}
+            placeholder="Ej. completa, parcial 30h, turnos" />
+        </Field>
+      </Section>
+
+      <Section titulo="Contacto de emergencia">
+        <Field label="Nombre">
+          <input className={inputCls} value={form.contacto_emergencia_nombre}
+            onChange={(e) => set("contacto_emergencia_nombre", e.target.value)} />
+        </Field>
+        <Field label="Teléfono">
+          <input className={inputCls} value={form.contacto_emergencia_telefono}
+            onChange={(e) => set("contacto_emergencia_telefono", e.target.value)} />
+        </Field>
+        <Field label="Parentesco">
+          <input className={inputCls} value={form.contacto_emergencia_parentesco}
+            onChange={(e) => set("contacto_emergencia_parentesco", e.target.value)}
+            placeholder="Ej. esposa, madre, hermano" />
+        </Field>
+      </Section>
+
       <Section titulo="Datos personales">
         <Field label="Nombre completo" required>
           <input className={inputCls} value={form.nombre}
@@ -826,6 +895,13 @@ function EmpleadoFormFields({
           </p>
         </div>
       </Section>
+
+      <section>
+        <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Observaciones internas</h3>
+        <textarea rows={4} className={inputCls} value={form.observaciones}
+          onChange={(e) => set("observaciones", e.target.value)}
+          placeholder="Notas internas visibles sólo para RRHH." />
+      </section>
     </>
   );
 }
@@ -1265,6 +1341,131 @@ function ResumenVacacionesEmpleado({ empleadoId }: { empleadoId: string }) {
           </Link>
         </div>
       </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Fase B · Especialidades del empleado (embebido en el modal Editar).
+// Reemplazo total al guardar (PUT /especialidades). Autónomo del formulario
+// principal — no altera el submit del PATCH del empleado.
+// ---------------------------------------------------------------------------
+type EspecialidadCatalogo = { id: string; nombre: string; slug: string; activo: boolean };
+type EmpleadoEspecialidadRow = {
+  especialidad_id: string;
+  es_principal: boolean;
+  nivel: string | null;
+  observaciones: string | null;
+};
+const NIVEL_OPTS = ["aprendiz","intermedio","especialista","encargado"] as const;
+
+function EspecialidadesEmpleado({ empleadoId }: { empleadoId: string }) {
+  const [catalogo, setCatalogo] = useState<EspecialidadCatalogo[]>([]);
+  const [items, setItems] = useState<EmpleadoEspecialidadRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancel = false;
+    setLoading(true);
+    Promise.all([
+      fetchWithSupabaseSession("/api/rrhh/especialidades", { cache: "no-store" }).then((r) => r.json()),
+      fetchWithSupabaseSession(`/api/rrhh/empleados/${empleadoId}/especialidades`, { cache: "no-store" }).then((r) => r.json()),
+    ]).then(([catJ, empJ]: [{ data?: { especialidades: EspecialidadCatalogo[] } }, { data?: { especialidades: EmpleadoEspecialidadRow[] } }]) => {
+      if (cancel) return;
+      setCatalogo((catJ.data?.especialidades ?? []).filter((c) => c.activo));
+      setItems(empJ.data?.especialidades?.map((e) => ({
+        especialidad_id: e.especialidad_id,
+        es_principal: !!e.es_principal,
+        nivel: e.nivel,
+        observaciones: e.observaciones,
+      })) ?? []);
+    }).catch(() => { /* tolerante */ }).finally(() => { if (!cancel) setLoading(false); });
+    return () => { cancel = true; };
+  }, [empleadoId]);
+
+  const disponibles = catalogo.filter((c) => !items.some((i) => i.especialidad_id === c.id));
+
+  const agregar = (id: string) => {
+    if (!id) return;
+    setItems((s) => [...s, { especialidad_id: id, es_principal: s.length === 0, nivel: null, observaciones: null }]);
+    setDirty(true);
+  };
+  const quitar = (id: string) => { setItems((s) => s.filter((i) => i.especialidad_id !== id)); setDirty(true); };
+  const marcarPrincipal = (id: string) => {
+    setItems((s) => s.map((i) => ({ ...i, es_principal: i.especialidad_id === id })));
+    setDirty(true);
+  };
+  const setNivel = (id: string, nivel: string | null) => {
+    setItems((s) => s.map((i) => i.especialidad_id === id ? { ...i, nivel } : i));
+    setDirty(true);
+  };
+
+  const guardar = async () => {
+    setSaving(true); setMsg(null);
+    const r = await fetchWithSupabaseSession(`/api/rrhh/empleados/${empleadoId}/especialidades`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items }),
+    });
+    setSaving(false);
+    if (r.ok) { setDirty(false); setMsg("Especialidades guardadas."); setTimeout(() => setMsg(null), 2000); }
+    else { const j = await r.json().catch(() => ({})); setMsg(j.error ?? "Error"); }
+  };
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Especialidades</h3>
+        {dirty && (
+          <button type="button" onClick={guardar} disabled={saving}
+            className="rounded-md bg-[#4FAEB2] px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50">
+            {saving ? "Guardando…" : "Guardar especialidades"}
+          </button>
+        )}
+      </div>
+      {msg && <div className="mb-2 text-xs text-slate-500">{msg}</div>}
+      {loading ? <div className="text-xs text-slate-400">Cargando…</div> : (
+        <>
+          {items.length === 0 && <div className="mb-2 text-xs text-slate-400">Sin especialidades asignadas.</div>}
+          <ul className="space-y-2">
+            {items.map((it) => {
+              const cat = catalogo.find((c) => c.id === it.especialidad_id);
+              return (
+                <li key={it.especialidad_id} className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/50 px-3 py-2">
+                  <label className="flex items-center gap-1.5 text-xs">
+                    <input type="radio" checked={it.es_principal} onChange={() => marcarPrincipal(it.especialidad_id)}
+                      className="h-3.5 w-3.5" />
+                    <span className="font-medium">{cat?.nombre ?? "—"}</span>
+                    {it.es_principal && <span className="ml-1 rounded-full bg-[#4FAEB2]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[#3F8E91]">Principal</span>}
+                  </label>
+                  <select value={it.nivel ?? ""} onChange={(e) => setNivel(it.especialidad_id, e.target.value || null)}
+                    className="rounded border border-slate-200 bg-white px-2 py-1 text-xs">
+                    <option value="">Nivel —</option>
+                    {NIVEL_OPTS.map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                  <button type="button" onClick={() => quitar(it.especialidad_id)}
+                    className="ml-auto text-xs text-rose-600 hover:underline">Quitar</button>
+                </li>
+              );
+            })}
+          </ul>
+          {disponibles.length > 0 && (
+            <div className="mt-3 flex items-center gap-2">
+              <span className="text-xs text-slate-500">Añadir:</span>
+              <select onChange={(e) => { agregar(e.target.value); e.currentTarget.value = ""; }} defaultValue=""
+                className="rounded border border-slate-200 bg-white px-2 py-1 text-xs">
+                <option value="">— elegir —</option>
+                {disponibles.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </select>
+              <Link href="/configuracion/rrhh/especialidades" className="ml-auto text-xs text-slate-500 hover:underline">
+                Gestionar catálogo →
+              </Link>
+            </div>
+          )}
+        </>
+      )}
     </section>
   );
 }

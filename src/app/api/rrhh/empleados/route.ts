@@ -54,12 +54,26 @@ export async function POST(request: NextRequest) {
       : [];
     const tiposEmpleado = Array.from(new Set(tiposEmpleadoRaw));
 
+    const estadoRaw = str("estado");
+    const estado = estadoRaw && ["activo","baja","suspendido","pendiente"].includes(estadoRaw)
+      ? estadoRaw
+      : (body.activo === false ? "baja" : "activo");
+
     const insert = {
       empresa_id: ctx.auth.empresa_id,
       nombre,
       // Documento
       tipo_documento: str("tipo_documento") ?? "DNI",
       documento: str("documento"),
+      // Estado ciclo de vida (Fase A) — convive con `activo`
+      estado,
+      tipo_contrato: str("tipo_contrato"),
+      jornada_laboral: str("jornada_laboral"),
+      contacto_emergencia_nombre: str("contacto_emergencia_nombre"),
+      contacto_emergencia_telefono: str("contacto_emergencia_telefono"),
+      contacto_emergencia_parentesco: str("contacto_emergencia_parentesco"),
+      observaciones: str("observaciones"),
+      created_by: ctx.auth.user?.id ?? null,
       // Personales
       fecha_nacimiento: date("fecha_nacimiento"),
       lugar_nacimiento: str("lugar_nacimiento"),

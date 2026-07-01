@@ -48,6 +48,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       "departamento","seccion","supervisor","banco","numero_cuenta",
       "sucursal","chofer_habilitacion","chofer_observacion",
       "comision_politica_id","comision_observacion",
+      // Fase A
+      "tipo_contrato","jornada_laboral",
+      "contacto_emergencia_nombre","contacto_emergencia_telefono","contacto_emergencia_parentesco",
+      "observaciones",
     ];
     const DATE_FIELDS = ["fecha_nacimiento","fecha_ingreso","fecha_baja","chofer_fecha_venc"];
     const NUM_FIELDS = ["salario_base","salario_complementario","costo_hora"];
@@ -80,6 +84,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     for (const k of BOOL_FIELDS) {
       if (body[k] !== undefined) update[k] = Boolean(body[k]);
     }
+    // Fase A · estado ciclo de vida (validado)
+    if (body.estado !== undefined) {
+      const v = body.estado ? String(body.estado).trim() : null;
+      if (v && !["activo","baja","suspendido","pendiente"].includes(v)) {
+        return NextResponse.json(errorResponse("estado inválido"), { status: 400 });
+      }
+      update.estado = v;
+    }
+
     if (body.tipos_empleado !== undefined) {
       const raw = Array.isArray(body.tipos_empleado) ? (body.tipos_empleado as unknown[]) : [];
       const clean = Array.from(new Set(
