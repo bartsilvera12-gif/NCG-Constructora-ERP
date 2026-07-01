@@ -5,6 +5,7 @@ import Link from "next/link";
 import PageHeader from "@/components/ui/PageHeader";
 import MontoInput from "@/components/ui/MontoInput";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import CursosEmpleado from "./CursosEmpleado";
 
 export const dynamic = "force-dynamic";
 
@@ -497,6 +498,7 @@ function EditarEmpleadoModal({
           {err && <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{err}</div>}
           <ResumenVacacionesEmpleado empleadoId={empleado.id} />
           <EspecialidadesEmpleado empleadoId={empleado.id} />
+          <CursosEmpleado empleadoId={empleado.id} />
           <DocumentacionEmpleado empleadoId={empleado.id} />
           <EmpleadoFormFields form={form} setForm={setForm} editMode supervisores={supervisores} />
           <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">

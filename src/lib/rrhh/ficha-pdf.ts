@@ -51,6 +51,38 @@ export type FichaEmpleado = {
   comision_observacion: string | null;
   excluir_liquidaciones: boolean;
   activo: boolean;
+  // Fase A · extendidos
+  estado: string | null;
+  tipo_contrato: string | null;
+  jornada_laboral: string | null;
+  contacto_emergencia_nombre: string | null;
+  contacto_emergencia_telefono: string | null;
+  contacto_emergencia_parentesco: string | null;
+  observaciones: string | null;
+};
+
+/** Extras opcionales que el endpoint de PDF carga si hay permisos/datos. */
+export type FichaExtras = {
+  especialidades?: Array<{ nombre: string; es_principal: boolean; nivel: string | null }>;
+  salarioVigente?: {
+    fecha_desde: string; fecha_hasta: string | null;
+    salario_bruto: number; salario_neto: number | null;
+    plus_peligrosidad: number; plus_prl: number;
+    coste_empresa: number | null; moneda: string;
+  } | null;
+  /** Si null → el usuario no tiene permiso `salarios.ver` (se oculta la sección). */
+  mostrarSalario?: boolean;
+  cursos?: Array<{
+    nombre: string; tipo: string;
+    entidad_emisora: string | null;
+    fecha_emision: string | null; fecha_vencimiento: string | null;
+    estado: "vigente" | "por_vencer" | "vencido" | "pendiente";
+  }>;
+  obraActual?: {
+    proyecto_nombre: string | null;
+    fecha_desde: string | null;
+    fecha_hasta_estimada: string | null;
+  } | null;
 };
 
 const A4_W = 595.28;
@@ -144,7 +176,7 @@ function campos(ctx: Ctx, items: Array<[string, string]>, cols = 2) {
   ctx.y -= rows * 16 + 6;
 }
 
-export async function buildFichaPdf(empresa: FichaEmpresa, e: FichaEmpleado): Promise<Uint8Array> {
+export async function buildFichaPdf(empresa: FichaEmpresa, e: FichaEmpleado, extras: FichaExtras = {}): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontB = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -190,13 +222,26 @@ export async function buildFichaPdf(empresa: FichaEmpresa, e: FichaEmpleado): Pr
     ["Email", v(e.email)],
   ], 2);
 
+  // Contacto de emergencia (Fase A)
+  if (e.contacto_emergencia_nombre || e.contacto_emergencia_telefono) {
+    seccion(ctx, "Contacto de emergencia");
+    campos(ctx, [
+      ["Nombre", v(e.contacto_emergencia_nombre)],
+      ["Teléfono", v(e.contacto_emergencia_telefono)],
+      ["Parentesco", v(e.contacto_emergencia_parentesco)],
+    ], 3);
+  }
+
   // Laborales
   seccion(ctx, "Datos laborales");
   campos(ctx, [
     ["Cargo / Puesto", v(e.cargo)],
     ["Categoría / Nivel", v(e.categoria_nivel)],
+    ["Estado", v(e.estado)],
     ["Fecha ingreso", fmtFecha(e.fecha_ingreso)],
     ["Fecha baja", fmtFecha(e.fecha_baja)],
+    ["Tipo de contrato", v(e.tipo_contrato)],
+    ["Jornada laboral", v(e.jornada_laboral)],
     ["Tipo de empleado", v(e.tipo_empleado)],
     ["Tipo de periodo", v(e.tipo_periodo)],
     ["Grupo de cotización", v(e.grupo_cotizacion)],
@@ -204,17 +249,63 @@ export async function buildFichaPdf(empresa: FichaEmpresa, e: FichaEmpleado): Pr
     ["Departamento", v(e.departamento)],
     ["Sección", v(e.seccion)],
     ["Supervisor", v(e.supervisor)],
-    ["Etiquetas", e.tipos_empleado && e.tipos_empleado.length > 0 ? e.tipos_empleado.join(", ") : "—"],
   ], 2);
 
-  // Compensación
-  seccion(ctx, "Compensación");
-  campos(ctx, [
-    ["Salario base", fmtMoney(e.salario_base)],
-    ["Salario complementario", fmtMoney(e.salario_complementario)],
-    ["Costo por hora", fmtMoney(e.costo_hora)],
-    ["Excluido de liquidaciones", e.excluir_liquidaciones ? "Sí" : "No"],
-  ], 2);
+  // Especialidades (Fase B)
+  if (extras.especialidades && extras.especialidades.length > 0) {
+    seccion(ctx, "Especialidades");
+    const items: Array<[string, string]> = extras.especialidades.map((esp) => [
+      esp.es_principal ? `${esp.nombre} (principal)` : esp.nombre,
+      v(esp.nivel),
+    ]);
+    campos(ctx, items, 2);
+  }
+
+  // Obra actual (desde empleado_asignaciones activa)
+  if (extras.obraActual && extras.obraActual.proyecto_nombre) {
+    seccion(ctx, "Obra asignada actual");
+    campos(ctx, [
+      ["Proyecto", v(extras.obraActual.proyecto_nombre)],
+      ["Desde", fmtFecha(extras.obraActual.fecha_desde)],
+      ["Hasta estimada", fmtFecha(extras.obraActual.fecha_hasta_estimada)],
+    ], 3);
+  }
+
+  // Compensación — sólo si el gate del endpoint autoriza (extras.mostrarSalario)
+  if (extras.mostrarSalario) {
+    seccion(ctx, "Compensación");
+    if (extras.salarioVigente) {
+      const s = extras.salarioVigente;
+      campos(ctx, [
+        ["Salario bruto (vigente)", fmtMoney(s.salario_bruto)],
+        ["Salario neto", fmtMoney(s.salario_neto)],
+        ["Plus peligrosidad", fmtMoney(s.plus_peligrosidad)],
+        ["Plus PRL", fmtMoney(s.plus_prl)],
+        ["Coste empresa", fmtMoney(s.coste_empresa)],
+        ["Moneda", v(s.moneda)],
+        ["Vigencia", `${fmtFecha(s.fecha_desde)} → ${s.fecha_hasta ? fmtFecha(s.fecha_hasta) : "indefinido"}`],
+      ], 2);
+    } else {
+      campos(ctx, [
+        ["Salario base (denorm.)", fmtMoney(e.salario_base)],
+        ["Salario complementario", fmtMoney(e.salario_complementario)],
+        ["Costo por hora", fmtMoney(e.costo_hora)],
+        ["Excluido de liquidaciones", e.excluir_liquidaciones ? "Sí" : "No"],
+      ], 2);
+    }
+  }
+
+  // Cursos y certificados (Fase D)
+  if (extras.cursos && extras.cursos.length > 0) {
+    seccion(ctx, "Cursos y certificados");
+    const items: Array<[string, string]> = extras.cursos.map((c) => [
+      c.nombre,
+      c.fecha_vencimiento
+        ? `${c.estado === "vencido" ? "VENCIDO " : c.estado === "por_vencer" ? "Por vencer " : ""}${fmtFecha(c.fecha_vencimiento)}`
+        : "Sin fecha",
+    ]);
+    campos(ctx, items, 2);
+  }
 
   // Bancarios
   seccion(ctx, "Datos bancarios");
@@ -242,6 +333,14 @@ export async function buildFichaPdf(empresa: FichaEmpresa, e: FichaEmpleado): Pr
       ["Participa", e.participa_comisiones ? "Sí" : "No"],
       ["Observación", v(e.comision_observacion)],
     ], 2);
+  }
+
+  // Observaciones internas (Fase A)
+  if (e.observaciones) {
+    seccion(ctx, "Observaciones internas");
+    ensureSpace(ctx, 40);
+    text(ctx, e.observaciones, MARGIN, ctx.y, { size: 8, color: SLATE });
+    ctx.y -= 20;
   }
 
   // Footer en última página
