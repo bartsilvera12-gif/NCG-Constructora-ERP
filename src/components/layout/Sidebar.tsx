@@ -102,11 +102,32 @@ const MENU_STRUCTURE: MenuItem[] = [
   { key: "proyectos",        slug: "proyectos",     label: "Proyectos",        href: "/dashboard/proyectos",    icon: FolderKanban },
   { key: "control_obra",     slug: "proyectos",     label: "Control de obra",  href: "/control-obra",           icon: HardHat },
 
-  { key: "compras",          slug: "compras",       label: "Compras",          href: "/compras",                icon: Package },
-  { key: "proveedores",      slug: "compras",       label: "Proveedores",      href: "/proveedores",            icon: Building2 },
-
-  { key: "productos",        slug: "inventario",    label: "Productos",        href: "/inventario",             icon: Package },
-  { key: "movimientos",      slug: "inventario",    label: "Movimientos",      href: "/inventario/movimientos", icon: ListChecks },
+  // Operaciones — Inventario y Compras se muestran como submenús desplegables
+  // dentro del grupo OPERACIONES. Cada uno mantiene su propio slug para el
+  // gate de módulos.
+  {
+    key: "inventario_grp",
+    slug: "inventario",
+    label: "Inventario",
+    href: "/inventario",
+    icon: Package,
+    children: [
+      { label: "Productos",   href: "/inventario",              exactMatch: true },
+      { label: "Movimientos", href: "/inventario/movimientos" },
+      { label: "Categorías",  href: "/inventario/categorias" },
+    ],
+  },
+  {
+    key: "compras_grp",
+    slug: "compras",
+    label: "Compras",
+    href: "/compras",
+    icon: ShoppingCart,
+    children: [
+      { label: "Compras",     href: "/compras",     exactMatch: true },
+      { label: "Proveedores", href: "/proveedores" },
+    ],
+  },
 
   { key: "gastos",           slug: "gastos",        label: "Gastos",           href: "/gastos",                 icon: Receipt },
   { key: "notas_credito",    slug: "notas_credito", label: "Notas de crédito", href: "/notas-credito",          icon: ScrollText },
@@ -124,7 +145,7 @@ const MENU_SECTIONS: { label: string; keys: string[] }[] = [
   { label: "General",    keys: ["dashboard"] },
   { label: "Comercial",  keys: ["clientes", "ventas"] },
   { label: "Obras",      keys: ["presupuestos", "proyectos", "control_obra"] },
-  { label: "Operaciones", keys: ["compras", "proveedores", "productos", "movimientos"] },
+  { label: "Operaciones", keys: ["inventario_grp", "compras_grp"] },
   { label: "Finanzas",   keys: ["gastos", "reportes", "panel_financiero"] },
   { label: "RRHH",       keys: ["rrhh"] },
   { label: "Admin",      keys: ["configuracion"] },
