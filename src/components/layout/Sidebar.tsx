@@ -114,7 +114,6 @@ const MENU_STRUCTURE: MenuItem[] = [
     children: [
       { label: "Productos",   href: "/inventario",              exactMatch: true },
       { label: "Movimientos", href: "/inventario/movimientos" },
-      { label: "Categorías",  href: "/inventario/categorias" },
     ],
   },
   {
