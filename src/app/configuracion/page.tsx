@@ -13,6 +13,7 @@ import {
   PieChart,
   Receipt,
   SlidersHorizontal,
+  Shield,
   Tag,
   UsersRound,
 } from "lucide-react";
@@ -97,6 +98,16 @@ export default function ConfiguracionPage() {
               icon={CalendarClock}
               badge={editorBadge}
               href="/configuracion/rrhh/vacaciones"
+            />
+          </li>
+          <li>
+            <SettingsModuleCard
+              title="Usuarios y roles"
+              subtitle="EMPRESA · SEGURIDAD"
+              description="Asigná el rol funcional de RRHH (admin, gestor, RRHH, encargado de obra, empleado) para controlar quién ve salarios, cursos, marcaciones, compras."
+              icon={Shield}
+              badge={editorBadge}
+              href="/configuracion/usuarios"
             />
           </li>
           <li>
