@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 import { FacturaElectronicaPanel } from "@/components/sifen/FacturaElectronicaPanel";
+import FacturaEspanaPanel from "@/components/facturas/FacturaEspanaPanel";
 import type { FacturaElectronicaDTO, SifenCancelacionPreviewDTO } from "@/lib/sifen/types";
 
 type FacturaApiRow = {
@@ -239,6 +240,8 @@ function FacturaDetalleInner() {
         onResumenLoaded={onResumenLoaded}
         onComercialUpdated={reloadFacturaComercial}
       />
+
+      <FacturaEspanaPanel facturaId={id} />
     </div>
   );
 }
