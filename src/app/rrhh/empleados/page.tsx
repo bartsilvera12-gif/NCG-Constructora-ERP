@@ -327,6 +327,13 @@ export default function EmpleadosPage() {
                   </td>
                   <td className="px-5 py-3.5 text-right">
                     <div className="inline-flex items-center justify-end gap-1">
+                      <Link
+                        href={`/rrhh/empleados/${e.id}`}
+                        title="Ver ficha completa"
+                        className="inline-flex items-center justify-center rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors"
+                      >
+                        Ver
+                      </Link>
                       <button
                         type="button"
                         onClick={() => setEditando(e)}
@@ -1120,7 +1127,7 @@ function fmtBytes(n: number | null): string {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function DocumentacionEmpleado({ empleadoId }: { empleadoId: string }) {
+export function DocumentacionEmpleado({ empleadoId }: { empleadoId: string }) {
   const [archivos, setArchivos] = useState<ArchivoEmp[]>([]);
   const [loading, setLoading] = useState(true);
   const [subiendo, setSubiendo] = useState(false);
@@ -1276,7 +1283,7 @@ function DocumentacionEmpleado({ empleadoId }: { empleadoId: string }) {
 }
 
 // ── Resumen mini de vacaciones para el modal de edición ─────────────────────
-function ResumenVacacionesEmpleado({ empleadoId }: { empleadoId: string }) {
+export function ResumenVacacionesEmpleado({ empleadoId }: { empleadoId: string }) {
   const [saldo, setSaldo] = useState<{
     anuales: number; generados: number; usados: number; disponibles: number;
     pendApr: number; proxDesde: string | null; proxHasta: string | null;
@@ -1365,7 +1372,7 @@ type EmpleadoEspecialidadRow = {
 };
 const NIVEL_OPTS = ["aprendiz","intermedio","especialista","encargado"] as const;
 
-function EspecialidadesEmpleado({ empleadoId }: { empleadoId: string }) {
+export function EspecialidadesEmpleado({ empleadoId }: { empleadoId: string }) {
   const [catalogo, setCatalogo] = useState<EspecialidadCatalogo[]>([]);
   const [items, setItems] = useState<EmpleadoEspecialidadRow[]>([]);
   const [loading, setLoading] = useState(true);
