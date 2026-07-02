@@ -15,6 +15,9 @@ type Politica = {
   arrastra_pendientes: boolean;
   arrastra_dias_max: number | null;
   pais_region: string | null;
+  // Fase H
+  dias_empresa: number | null;
+  dias_empleado: number | null;
 };
 
 const DEFAULTS: Politica = {
@@ -26,6 +29,8 @@ const DEFAULTS: Politica = {
   arrastra_pendientes: false,
   arrastra_dias_max: null,
   pais_region: "ES",
+  dias_empresa: 15,
+  dias_empleado: 15,
 };
 
 const input = "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm";
@@ -92,6 +97,36 @@ export default function PoliticaVacacionesPage() {
               <option value="laborables">Días laborables (solo lunes a viernes)</option>
             </select>
           </div>
+        </div>
+
+        {/* Fase H · Desglose empresa/empleado */}
+        <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+          <h4 className="text-sm font-semibold text-slate-800">Desglose empresa / empleado</h4>
+          <p className="text-xs text-slate-500">
+            Del total anual, cuántos días los define la empresa y cuántos elige el empleado.
+            Dejá en blanco si no querés distinguir. Suma sugerida = total anual.
+          </p>
+          <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label className={label}>Días definidos por la empresa</label>
+              <input type="number" min={0} max={365} className={input}
+                value={p.dias_empresa ?? ""}
+                placeholder="Ej. 15"
+                onChange={(e) => setP({ ...p, dias_empresa: e.target.value === "" ? null : Number(e.target.value) || 0 })} />
+            </div>
+            <div>
+              <label className={label}>Días elegidos por el empleado</label>
+              <input type="number" min={0} max={365} className={input}
+                value={p.dias_empleado ?? ""}
+                placeholder="Ej. 15"
+                onChange={(e) => setP({ ...p, dias_empleado: e.target.value === "" ? null : Number(e.target.value) || 0 })} />
+            </div>
+          </div>
+          {p.dias_empresa !== null && p.dias_empleado !== null && (p.dias_empresa + p.dias_empleado) !== p.dias_anuales && (
+            <p className="mt-2 text-xs text-amber-700">
+              Aviso: la suma ({(p.dias_empresa ?? 0) + (p.dias_empleado ?? 0)}) no coincide con los días anuales ({p.dias_anuales}). Podés dejarlo así si el convenio lo requiere.
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">

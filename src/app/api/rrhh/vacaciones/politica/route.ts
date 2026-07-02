@@ -16,6 +16,9 @@ const DEFAULTS = {
   arrastra_pendientes: false,
   arrastra_dias_max: null as number | null,
   pais_region: "ES" as string | null,
+  // Fase H · desglose empresa/empleado (España default 15/15)
+  dias_empresa: 15 as number | null,
+  dias_empleado: 15 as number | null,
 };
 
 export async function GET(request: NextRequest) {
@@ -64,6 +67,9 @@ export async function PUT(request: NextRequest) {
       pais_region: typeof body.pais_region === "string" && body.pais_region.trim() !== ""
         ? body.pais_region.trim()
         : null,
+      // Fase H
+      dias_empresa: numn(body.dias_empresa),
+      dias_empleado: numn(body.dias_empleado),
       updated_at: new Date().toISOString(),
     };
 

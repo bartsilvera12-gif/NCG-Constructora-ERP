@@ -87,6 +87,7 @@ function VacacionesInner() {
     fecha_desde: todayIso(),
     fecha_hasta: todayIso(),
     observacion: "",
+    origen: "empleado" as "empleado" | "empresa",
   });
   const [saving, setSaving] = useState(false);
 
@@ -143,6 +144,7 @@ function VacacionesInner() {
           fecha_desde: form.fecha_desde,
           fecha_hasta: form.fecha_hasta,
           observacion: form.observacion,
+          origen: form.origen,
           // Siempre admin: no hay flujo de aprobación en este MVP. El registro
           // queda directamente aprobado.
           modo: "admin",
@@ -234,11 +236,21 @@ function VacacionesInner() {
                 onChange={(e) => setForm({ ...form, fecha_hasta: e.target.value })} />
             </div>
           </div>
-          <div className="mt-3">
-            <label className={lblCls}>Observación</label>
-            <input className={inputCls} value={form.observacion}
-              placeholder="Ej. Vacaciones anuales, motivo personal"
-              onChange={(e) => setForm({ ...form, observacion: e.target.value })} />
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="md:col-span-2">
+              <label className={lblCls}>Observación</label>
+              <input className={inputCls} value={form.observacion}
+                placeholder="Ej. Vacaciones anuales, motivo personal"
+                onChange={(e) => setForm({ ...form, observacion: e.target.value })} />
+            </div>
+            <div>
+              <label className={lblCls}>Origen</label>
+              <select className={inputCls} value={form.origen}
+                onChange={(e) => setForm({ ...form, origen: e.target.value as "empleado" | "empresa" })}>
+                <option value="empleado">Solicitado por empleado</option>
+                <option value="empresa">Definido por empresa</option>
+              </select>
+            </div>
           </div>
           <div className="mt-3 flex items-center justify-between flex-wrap gap-3">
             {previewDias && previewDias.dias > 0 && (

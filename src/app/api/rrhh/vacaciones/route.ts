@@ -133,6 +133,7 @@ export async function POST(request: NextRequest) {
         tipo_ausencia: tipo,
         estado: estadoInicial,
         observacion: body.observacion ? String(body.observacion).trim() : null,
+        origen: body.origen === "empresa" ? "empresa" : "empleado",
         aprobado_at: estadoInicial === "aprobada" ? ahora : null,
       }])
       .select()

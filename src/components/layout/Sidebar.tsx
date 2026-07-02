@@ -123,8 +123,9 @@ const MENU_STRUCTURE: MenuItem[] = [
     href: "/compras",
     icon: ShoppingCart,
     children: [
-      { label: "Compras",     href: "/compras",     exactMatch: true },
-      { label: "Proveedores", href: "/proveedores" },
+      { label: "Compras",         href: "/compras",             exactMatch: true },
+      { label: "Hojas de compra", href: "/compras/solicitudes" },
+      { label: "Proveedores",     href: "/proveedores" },
     ],
   },
 
