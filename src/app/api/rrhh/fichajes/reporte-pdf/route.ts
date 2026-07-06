@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await q;
     if (error) return NextResponse.json(errorResponse(error.message), { status: 400 });
 
-    const filas: MarcacionRow[] = (data ?? []).map((row: Record<string, unknown>) => {
+    const fichajes: MarcacionRow[] = (data ?? []).map((row: Record<string, unknown>) => {
       const emp = row.empleados as { nombre?: string } | { nombre?: string }[] | null;
       const e = Array.isArray(emp) ? emp[0] : emp;
       return {
@@ -96,6 +96,19 @@ export async function GET(request: NextRequest) {
     };
     const empleadoNombre = (empQ.data as { nombre?: string } | null)?.nombre ?? null;
 
+    // Expando filas: una por (día, empleado) en el rango para que aparezcan
+    // feriados y ausencias aunque no haya fichaje. Si hay fichaje, se usa;
+    // si no, la fila queda con horas vacías pero con el tag de feriado/ausencia.
+    const filas = expandirFilasPorDia({
+      desde,
+      hasta,
+      fichajes,
+      feriados,
+      ausencias,
+      empleadoIdFiltro: empleadoId,
+      empleadoNombreFiltro: empleadoNombre,
+    });
+
     const bytes = await buildMarcacionesPdf(empresa, empleadoNombre, desde, hasta, filas, {
       feriados,
       ausencias,
@@ -117,4 +130,107 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     return NextResponse.json(errorResponse(err instanceof Error ? err.message : "Error"), { status: 500 });
   }
+}
+
+// ── Expansión día × empleado ────────────────────────────────────────────────
+
+type AusenciaLite = {
+  empleado_id: string;
+  empleado_nombre: string | null;
+  fecha_desde: string;
+  fecha_hasta: string;
+  tipo: "reposo" | "vacaciones" | "permiso" | "baja" | "otro";
+  observacion: string | null;
+};
+
+function iterarDias(desde: string, hasta: string): string[] {
+  const dias: string[] = [];
+  const d = new Date(`${desde}T00:00:00Z`);
+  const h = new Date(`${hasta}T00:00:00Z`);
+  for (let cur = new Date(d); cur.getTime() <= h.getTime(); cur.setUTCDate(cur.getUTCDate() + 1)) {
+    dias.push(cur.toISOString().slice(0, 10));
+  }
+  return dias;
+}
+
+function expandirFilasPorDia(opts: {
+  desde: string;
+  hasta: string;
+  fichajes: MarcacionRow[];
+  feriados: Array<{ fecha: string; nombre: string }>;
+  ausencias: AusenciaLite[];
+  empleadoIdFiltro: string | null;
+  empleadoNombreFiltro: string | null;
+}): MarcacionRow[] {
+  const { desde, hasta, fichajes, feriados, ausencias, empleadoIdFiltro, empleadoNombreFiltro } = opts;
+
+  // Empleados a expandir: si hay filtro, solo ese; si no, todos los que aparecen
+  // en fichajes o ausencias del rango.
+  const empleadosMap = new Map<string, string | null>();
+  if (empleadoIdFiltro) {
+    empleadosMap.set(empleadoIdFiltro, empleadoNombreFiltro);
+  } else {
+    for (const f of fichajes) if (f.empleado_id) empleadosMap.set(f.empleado_id, f.empleado_nombre);
+    for (const a of ausencias) empleadosMap.set(a.empleado_id, a.empleado_nombre);
+  }
+
+  // Index de fichajes por (empleado_id, fecha) → fila.
+  const fichajesIdx = new Map<string, MarcacionRow>();
+  for (const f of fichajes) {
+    if (!f.empleado_id) continue;
+    fichajesIdx.set(`${f.empleado_id}::${f.fecha}`, f);
+  }
+  const feriadoSet = new Set(feriados.map((f) => f.fecha));
+  const tieneAusenciaEnFecha = (empId: string, fecha: string) =>
+    ausencias.some((a) => a.empleado_id === empId && a.fecha_desde <= fecha && a.fecha_hasta >= fecha);
+
+  // Recorto el rango hasta el último día con actividad (último fichaje o ausencia
+  // que termine en el rango). Si no hay actividad, uso hasta.
+  const ultimaFecha = (() => {
+    let last = desde;
+    for (const f of fichajes) if (f.fecha > last && f.fecha <= hasta) last = f.fecha;
+    for (const a of ausencias) {
+      const fin = a.fecha_hasta > hasta ? hasta : a.fecha_hasta;
+      if (fin > last && fin >= desde) last = fin;
+    }
+    for (const fr of feriados) if (fr.fecha > last && fr.fecha <= hasta) last = fr.fecha;
+    return last;
+  })();
+
+  const dias = iterarDias(desde, ultimaFecha);
+  const filas: MarcacionRow[] = [];
+
+  for (const fecha of dias) {
+    for (const [empId, empNombre] of empleadosMap) {
+      const key = `${empId}::${fecha}`;
+      const fichaje = fichajesIdx.get(key);
+      if (fichaje) {
+        filas.push(fichaje);
+        continue;
+      }
+      // No hay fichaje. Emitimos fila SOLO si es feriado o el empleado tiene ausencia
+      // ese día, así los días laborables normales sin fichaje no ensucian el reporte.
+      const esFeriado = feriadoSet.has(fecha);
+      const tieneAusencia = tieneAusenciaEnFecha(empId, fecha);
+      if (esFeriado || tieneAusencia) {
+        filas.push({
+          fecha,
+          empleado_id: empId,
+          empleado_nombre: empNombre,
+          hora_entrada: null,
+          hora_salida: null,
+          horas: null,
+          observacion: null,
+          marcado_kiosco: null,
+        });
+      }
+    }
+  }
+
+  // Ordenar por fecha ascendente y luego por nombre de empleado.
+  filas.sort((a, b) => {
+    if (a.fecha !== b.fecha) return a.fecha < b.fecha ? -1 : 1;
+    return (a.empleado_nombre ?? "").localeCompare(b.empleado_nombre ?? "");
+  });
+  return filas;
 }
