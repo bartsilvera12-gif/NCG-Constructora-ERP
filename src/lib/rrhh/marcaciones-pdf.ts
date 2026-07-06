@@ -106,8 +106,8 @@ export async function buildMarcacionesPdf(
     { label: "Entrada",     x: MARGIN + 275,  w: 55  },
     { label: "Salida",      x: MARGIN + 335,  w: 55  },
     { label: "Horas",       x: MARGIN + 395,  w: 45,  align: "right" as const },
-    { label: "Kiosco",      x: MARGIN + 445,  w: 45,  align: "center" as const },
-    { label: "Observación", x: MARGIN + 495,  w: 280 },
+    { label: "Marcado por", x: MARGIN + 445,  w: 60,  align: "center" as const },
+    { label: "Observación", x: MARGIN + 510,  w: 265 },
   ];
   const drawHeader = () => {
     ctx.page.drawRectangle({ x: MARGIN, y: ctx.y - 14, width: A4_W - MARGIN * 2, height: 14, color: FILL });
@@ -150,7 +150,7 @@ export async function buildMarcacionesPdf(
     text(ctx, fmtHora(r.hora_entrada), cols[2].x + 4, ctx.y - 9, { size: 8 });
     text(ctx, fmtHora(r.hora_salida), cols[3].x + 4, ctx.y - 9, { size: 8 });
     text(ctx, h ? h.toFixed(2) : "—", cols[4].x + cols[4].w - 4, ctx.y - 9, { size: 8, align: "right" });
-    text(ctx, r.marcado_kiosco ? "kiosco" : "manual", cols[5].x + cols[5].w / 2, ctx.y - 9, { size: 7.5, align: "center", color: SLATE });
+    text(ctx, r.marcado_kiosco ? "Empleado" : "Admin", cols[5].x + cols[5].w / 2, ctx.y - 9, { size: 7.5, align: "center", color: SLATE });
     text(ctx, (r.observacion ?? "").slice(0, 110), cols[6].x + 4, ctx.y - 9, { size: 8 });
 
     // separator line
