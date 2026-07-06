@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
     let q = ctx.supabase
       .from("empleado_fichajes")
-      .select("fecha, hora_entrada, hora_salida, horas, observacion, marcado_kiosco, empleados:empleado_id(nombre)")
+      .select("fecha, hora_entrada, hora_salida, horas, observacion, marcado_kiosco, empleado_id, empleados:empleado_id(nombre)")
       .eq("empresa_id", ctx.auth.empresa_id)
       .gte("fecha", desde)
       .lte("fecha", hasta)
@@ -36,12 +36,46 @@ export async function GET(request: NextRequest) {
       const e = Array.isArray(emp) ? emp[0] : emp;
       return {
         fecha: String(row.fecha),
+        empleado_id: (row.empleado_id as string | null) ?? null,
         empleado_nombre: e?.nombre ?? null,
         hora_entrada: (row.hora_entrada as string | null) ?? null,
         hora_salida: (row.hora_salida as string | null) ?? null,
         horas: row.horas !== null && row.horas !== undefined ? Number(row.horas) : null,
         observacion: (row.observacion as string | null) ?? null,
         marcado_kiosco: (row.marcado_kiosco as boolean | null) ?? null,
+      };
+    });
+
+    // Feriados y ausencias del rango — para colorear el PDF.
+    const [feriadosQ, ausenciasQ] = await Promise.all([
+      ctx.supabase
+        .from("feriados")
+        .select("fecha, nombre")
+        .eq("empresa_id", ctx.auth.empresa_id)
+        .gte("fecha", desde)
+        .lte("fecha", hasta),
+      (() => {
+        let a = ctx.supabase
+          .from("empleado_ausencias")
+          .select("empleado_id, fecha_desde, fecha_hasta, tipo, observacion, empleados:empleado_id(nombre)")
+          .eq("empresa_id", ctx.auth.empresa_id)
+          .lte("fecha_desde", hasta)
+          .gte("fecha_hasta", desde);
+        if (empleadoId) a = a.eq("empleado_id", empleadoId);
+        return a;
+      })(),
+    ]);
+    const feriados = (feriadosQ.data ?? []) as Array<{ fecha: string; nombre: string }>;
+    const ausencias = (ausenciasQ.data ?? []).map((row: Record<string, unknown>) => {
+      const emp = row.empleados as { nombre?: string } | { nombre?: string }[] | null;
+      const e = Array.isArray(emp) ? emp[0] : emp;
+      return {
+        empleado_id: String(row.empleado_id),
+        empleado_nombre: e?.nombre ?? null,
+        fecha_desde: String(row.fecha_desde),
+        fecha_hasta: String(row.fecha_hasta),
+        tipo: row.tipo as "reposo" | "vacaciones" | "permiso" | "baja" | "otro",
+        observacion: (row.observacion as string | null) ?? null,
       };
     });
 
@@ -62,7 +96,11 @@ export async function GET(request: NextRequest) {
     };
     const empleadoNombre = (empQ.data as { nombre?: string } | null)?.nombre ?? null;
 
-    const bytes = await buildMarcacionesPdf(empresa, empleadoNombre, desde, hasta, filas);
+    const bytes = await buildMarcacionesPdf(empresa, empleadoNombre, desde, hasta, filas, {
+      feriados,
+      ausencias,
+      empleadoIdFiltro: empleadoId,
+    });
 
     const slug = (empleadoNombre ?? "todos")
       .toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 60);

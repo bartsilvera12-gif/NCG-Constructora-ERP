@@ -6,6 +6,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type RGB }
 
 export type MarcacionRow = {
   fecha: string;
+  empleado_id?: string | null;
   empleado_nombre: string | null;
   hora_entrada: string | null;
   hora_salida: string | null;
@@ -20,6 +21,27 @@ export type MarcacionesEmpresa = {
   centro: string | null;
 };
 
+export type FeriadoRow = {
+  fecha: string;   // yyyy-mm-dd
+  nombre: string;
+};
+
+export type AusenciaRow = {
+  empleado_id: string;
+  fecha_desde: string;
+  fecha_hasta: string;
+  tipo: "reposo" | "vacaciones" | "permiso" | "baja" | "otro";
+  observacion: string | null;
+};
+
+const AUSENCIA_LABEL: Record<AusenciaRow["tipo"], string> = {
+  reposo: "Reposo",
+  vacaciones: "Vacaciones",
+  permiso: "Permiso",
+  baja: "Baja",
+  otro: "Ausencia",
+};
+
 const A4_W = 841.89;   // landscape
 const A4_H = 595.28;
 const MARGIN = 32;
@@ -27,6 +49,10 @@ const BLACK: RGB = rgb(0, 0, 0);
 const SLATE: RGB = rgb(0.35, 0.4, 0.46);
 const ACCENT: RGB = rgb(0.31, 0.68, 0.7);
 const FILL: RGB = rgb(0.95, 0.97, 0.97);
+// Colores para filas de día especial (fondo suave).
+const BG_FERIADO: RGB = rgb(1.0, 0.97, 0.85);  // amarillo claro
+const BG_AUSENCIA: RGB = rgb(1.0, 0.92, 0.92); // rojo muy claro
+const BG_FERIADO_TRABAJADO: RGB = rgb(1.0, 0.9, 0.75); // naranja claro (feriado + trabajó = extra)
 
 function fmtFecha(iso: string | null): string {
   if (!iso) return "—";
@@ -71,7 +97,20 @@ export async function buildMarcacionesPdf(
   desde: string,
   hasta: string,
   filas: MarcacionRow[],
+  extras?: { feriados?: FeriadoRow[]; ausencias?: (AusenciaRow & { empleado_nombre?: string | null })[]; empleadoIdFiltro?: string | null },
 ): Promise<Uint8Array> {
+  const feriadosMap = new Map<string, string>();
+  for (const f of extras?.feriados ?? []) feriadosMap.set(f.fecha, f.nombre);
+  const ausencias = extras?.ausencias ?? [];
+  // Helper: dado una fecha + empleado_id, retorna la ausencia que aplica (o null).
+  const ausenciaEnFecha = (fecha: string, empleadoId: string | null) =>
+    ausencias.find(
+      (a) =>
+        (!empleadoId || a.empleado_id === empleadoId) &&
+        a.fecha_desde <= fecha &&
+        a.fecha_hasta >= fecha
+    ) ?? null;
+  const empleadoIdFiltro = extras?.empleadoIdFiltro ?? null;
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontB = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -120,30 +159,40 @@ export async function buildMarcacionesPdf(
   drawHeader();
 
   let totalHoras = 0;
-  let ultimaFecha: string | null = null;
-  let subtotalDia = 0;
+  let horasFeriado = 0;
   const empleadosSet = new Set<string>();
-
-  const flushSubtotalDia = (fecha: string) => {
-    // Optional: rendering per-day totals adds noise for large ranges; keep simple totals.
-    void fecha; void subtotalDia;
-  };
 
   for (const r of filas) {
     if (ctx.y < MARGIN + 40) {
       newPage(ctx);
       drawHeader();
     }
-    if (ultimaFecha !== r.fecha) {
-      if (ultimaFecha) flushSubtotalDia(ultimaFecha);
-      subtotalDia = 0;
-      ultimaFecha = r.fecha;
-    }
 
     if (r.empleado_nombre) empleadosSet.add(r.empleado_nombre);
     const h = num(r.horas);
     totalHoras += h;
-    subtotalDia += h;
+
+    // Determinar tipo de día para el color de fondo y el tag.
+    const nombreFeriado = feriadosMap.get(r.fecha) ?? null;
+    const ausencia = ausenciaEnFecha(r.fecha, r.empleado_id ?? null);
+    let bg: RGB | null = null;
+    let tag = "";
+    if (nombreFeriado) {
+      if (h > 0) {
+        bg = BG_FERIADO_TRABAJADO;
+        tag = `Feriado (trabajado): ${nombreFeriado}`;
+        horasFeriado += h;
+      } else {
+        bg = BG_FERIADO;
+        tag = `Feriado: ${nombreFeriado}`;
+      }
+    } else if (ausencia) {
+      bg = BG_AUSENCIA;
+      tag = AUSENCIA_LABEL[ausencia.tipo] + (ausencia.observacion ? `: ${ausencia.observacion}` : "");
+    }
+    if (bg) {
+      ctx.page.drawRectangle({ x: MARGIN, y: ctx.y - 14, width: A4_W - MARGIN * 2, height: 14, color: bg });
+    }
 
     text(ctx, fmtFecha(r.fecha), cols[0].x + 4, ctx.y - 9, { size: 8 });
     text(ctx, r.empleado_nombre ?? "—", cols[1].x + 4, ctx.y - 9, { size: 8 });
@@ -151,7 +200,10 @@ export async function buildMarcacionesPdf(
     text(ctx, fmtHora(r.hora_salida), cols[3].x + 4, ctx.y - 9, { size: 8 });
     text(ctx, h ? h.toFixed(2) : "—", cols[4].x + cols[4].w - 4, ctx.y - 9, { size: 8, align: "right" });
     text(ctx, r.marcado_kiosco ? "Empleado" : "Admin", cols[5].x + cols[5].w / 2, ctx.y - 9, { size: 7.5, align: "center", color: SLATE });
-    text(ctx, (r.observacion ?? "").slice(0, 110), cols[6].x + 4, ctx.y - 9, { size: 8 });
+    const obsFinal = tag
+      ? tag + (r.observacion ? ` · ${r.observacion}` : "")
+      : r.observacion ?? "";
+    text(ctx, obsFinal.slice(0, 110), cols[6].x + 4, ctx.y - 9, { size: 8, bold: !!tag });
 
     // separator line
     ctx.page.drawLine({
@@ -168,12 +220,43 @@ export async function buildMarcacionesPdf(
   }
 
   // Totales
-  if (ctx.y < MARGIN + 40) newPage(ctx);
+  if (ctx.y < MARGIN + 60) newPage(ctx);
   ctx.y -= 10;
+  const horasNormales = totalHoras - horasFeriado;
   ctx.page.drawRectangle({ x: MARGIN, y: ctx.y - 20, width: A4_W - MARGIN * 2, height: 20, color: FILL });
   text(ctx, `Total registros: ${filas.length}`, MARGIN + 10, ctx.y - 13, { bold: true, size: 9 });
   text(ctx, `Empleados: ${empleadosSet.size || (empleadoNombre ? 1 : 0)}`, MARGIN + 180, ctx.y - 13, { size: 9 });
+  if (horasFeriado > 0) {
+    text(ctx, `Horas normales: ${horasNormales.toFixed(2)}`, MARGIN + 320, ctx.y - 13, { size: 9 });
+    text(ctx, `Horas feriado: ${horasFeriado.toFixed(2)}`, MARGIN + 470, ctx.y - 13, { bold: true, size: 9, color: rgb(0.85, 0.4, 0.1) });
+  }
   text(ctx, `Horas totales: ${totalHoras.toFixed(2)}`, A4_W - MARGIN - 10, ctx.y - 13, { bold: true, size: 10, align: "right" });
+  ctx.y -= 24;
+
+  // Leyenda de colores (solo si se usaron)
+  const feriadosEnRango = extras?.feriados?.filter((f) => f.fecha >= desde && f.fecha <= hasta) ?? [];
+  const ausenciasEnRango = ausencias.filter(
+    (a) => a.fecha_hasta >= desde && a.fecha_desde <= hasta && (!empleadoIdFiltro || a.empleado_id === empleadoIdFiltro)
+  );
+  if (feriadosEnRango.length > 0 || ausenciasEnRango.length > 0) {
+    if (ctx.y < MARGIN + 30) newPage(ctx);
+    text(ctx, "Días especiales del período:", MARGIN, ctx.y - 10, { bold: true, size: 8, color: SLATE });
+    ctx.y -= 14;
+    for (const f of feriadosEnRango) {
+      if (ctx.y < MARGIN + 20) newPage(ctx);
+      ctx.page.drawRectangle({ x: MARGIN, y: ctx.y - 10, width: 8, height: 8, color: BG_FERIADO });
+      text(ctx, `${fmtFecha(f.fecha)}  Feriado: ${f.nombre}`, MARGIN + 14, ctx.y - 8, { size: 7.5 });
+      ctx.y -= 11;
+    }
+    for (const a of ausenciasEnRango) {
+      if (ctx.y < MARGIN + 20) newPage(ctx);
+      ctx.page.drawRectangle({ x: MARGIN, y: ctx.y - 10, width: 8, height: 8, color: BG_AUSENCIA });
+      const rango = a.fecha_desde === a.fecha_hasta ? fmtFecha(a.fecha_desde) : `${fmtFecha(a.fecha_desde)}–${fmtFecha(a.fecha_hasta)}`;
+      const emp = (a as { empleado_nombre?: string | null }).empleado_nombre ?? "";
+      text(ctx, `${rango}  ${AUSENCIA_LABEL[a.tipo]}${emp ? ` (${emp})` : ""}${a.observacion ? ` — ${a.observacion}` : ""}`, MARGIN + 14, ctx.y - 8, { size: 7.5 });
+      ctx.y -= 11;
+    }
+  }
 
   // Footer
   text(ctx, `Generado el ${fmtFecha(new Date().toISOString().slice(0, 10))}`, MARGIN, MARGIN - 8, { size: 7, color: SLATE });
