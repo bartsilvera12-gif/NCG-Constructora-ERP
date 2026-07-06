@@ -355,6 +355,19 @@ function metodoPagoLabel(m: string | null | undefined): string {
   return "—";
 }
 
+const METODO_PAGO_I18N: Record<Lang, Record<string, string>> = {
+  es: { tarjeta: "Tarjeta", transferencia: "Transferencia", efectivo: "Efectivo", contado: "Contado", credito: "Crédito" },
+  en: { tarjeta: "Card", transferencia: "Wire transfer", efectivo: "Cash", contado: "Cash", credito: "Credit" },
+  fr: { tarjeta: "Carte", transferencia: "Virement", efectivo: "Espèces", contado: "Comptant", credito: "Crédit" },
+  it: { tarjeta: "Carta", transferencia: "Bonifico", efectivo: "Contanti", contado: "Contanti", credito: "Credito" },
+};
+/** Traduce el valor de metodo_pago si es un código conocido; si es texto libre lo devuelve como está. */
+function metodoPagoLabelLang(m: string | null | undefined, lang: Lang): string {
+  if (!m) return "—";
+  const key = m.toLowerCase().trim();
+  return METODO_PAGO_I18N[lang][key] ?? m;
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────
 
 interface VentaRow {
@@ -702,7 +715,7 @@ function renderPresupuesto(opts: {
 
     ${isFactura && (formaPago || venta.metodo_pago) ? `
     <div class="forma-pago-box">
-      ${escapeHtml(t.forma_pago_lbl)}: ${escapeHtml(formaPago ?? metodoPagoLabel(venta.metodo_pago))}
+      ${escapeHtml(t.forma_pago_lbl)}: ${escapeHtml(formaPago ?? metodoPagoLabelLang(venta.metodo_pago, lang))}
     </div>` : ""}
   </div>
 
