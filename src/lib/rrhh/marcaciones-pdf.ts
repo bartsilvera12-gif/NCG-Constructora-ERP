@@ -82,7 +82,9 @@ export async function buildMarcacionesPdf(
   ctx.page.drawRectangle({ x: MARGIN, y: ctx.y - 30, width: A4_W - MARGIN * 2, height: 30, color: ACCENT });
   text(ctx, "REPORTE DE MARCACIONES", MARGIN + 12, ctx.y - 14, { bold: true, size: 12, color: rgb(1, 1, 1) });
   text(ctx, empresa.nombre ?? "", MARGIN + 12, ctx.y - 26, { size: 8, color: rgb(1, 1, 1) });
-  const rangoTxt = `${fmtFecha(desde)}  →  ${fmtFecha(hasta)}`;
+  // WinAnsi (encoding de StandardFonts.Helvetica) no soporta "→" (0x2192).
+  // Usamos "-" para no requerir embed de una fuente custom.
+  const rangoTxt = `${fmtFecha(desde)}  -  ${fmtFecha(hasta)}`;
   text(ctx, rangoTxt, A4_W - MARGIN - 12, ctx.y - 22, { bold: true, size: 10, color: rgb(1, 1, 1), align: "right" });
   ctx.y -= 42;
 
