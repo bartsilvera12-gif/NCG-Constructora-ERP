@@ -77,7 +77,8 @@ function VacacionesInner() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [tab, setTab] = useState<"lista" | "saldos">("lista");
-  const [previewDias, setPreviewDias] = useState<{ dias: number; tipo: string } | null>(null);
+  const [previewDias, setPreviewDias] = useState<{ dias: number; tipo: string; naturales: number; laborables: number } | null>(null);
+  const [modoComputo, setModoComputo] = useState<"auto" | "laborables" | "naturales">("auto");
   // Buscador que aplica a Listado y Saldos.
   const [busqueda, setBusqueda] = useState("");
 
@@ -118,17 +119,23 @@ function VacacionesInner() {
   useEffect(() => {
     if (!form.fecha_desde || !form.fecha_hasta) { setPreviewDias(null); return; }
     const ctrl = new AbortController();
+    const forzarQs = modoComputo !== "auto" ? `&forzar=${modoComputo}` : "";
     fetchWithSupabaseSession(
-      `/api/rrhh/vacaciones/preview-dias?desde=${form.fecha_desde}&hasta=${form.fecha_hasta}`,
+      `/api/rrhh/vacaciones/preview-dias?desde=${form.fecha_desde}&hasta=${form.fecha_hasta}${forzarQs}`,
       { cache: "no-store", signal: ctrl.signal },
     )
       .then((r) => r.json())
-      .then((j: { success?: boolean; data?: { dias?: number; tipo_computo?: string } }) => {
-        if (j?.success) setPreviewDias({ dias: j.data?.dias ?? 0, tipo: j.data?.tipo_computo ?? "naturales" });
+      .then((j: { success?: boolean; data?: { dias?: number; tipo_computo?: string; dias_naturales?: number; dias_laborables?: number } }) => {
+        if (j?.success) setPreviewDias({
+          dias: j.data?.dias ?? 0,
+          tipo: j.data?.tipo_computo ?? "naturales",
+          naturales: j.data?.dias_naturales ?? 0,
+          laborables: j.data?.dias_laborables ?? 0,
+        });
       })
       .catch(() => { /* tolerante */ });
     return () => ctrl.abort();
-  }, [form.fecha_desde, form.fecha_hasta]);
+  }, [form.fecha_desde, form.fecha_hasta, modoComputo]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -145,6 +152,7 @@ function VacacionesInner() {
           fecha_hasta: form.fecha_hasta,
           observacion: form.observacion,
           origen: form.origen,
+          forzar_computo: modoComputo !== "auto" ? modoComputo : undefined,
           // Siempre admin: no hay flujo de aprobación en este MVP. El registro
           // queda directamente aprobado.
           modo: "admin",
@@ -253,10 +261,37 @@ function VacacionesInner() {
             </div>
           </div>
           <div className="mt-3 flex items-center justify-between flex-wrap gap-3">
-            {previewDias && previewDias.dias > 0 && (
-              <span className="text-xs text-slate-600">
-                Días calculados: <strong>{previewDias.dias}</strong> {previewDias.tipo === "laborables" ? "laborables" : "naturales"}
-              </span>
+            {previewDias && (previewDias.naturales > 0 || previewDias.laborables > 0) && (
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-slate-500">Contar:</span>
+                  <div className="inline-flex rounded-md border border-slate-200 bg-white overflow-hidden">
+                    <button type="button" onClick={() => setModoComputo("laborables")}
+                      className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                        (modoComputo === "laborables" || (modoComputo === "auto" && previewDias.tipo === "laborables"))
+                          ? "bg-[#4FAEB2] text-white"
+                          : "text-slate-600 hover:bg-slate-50"
+                      }`}>
+                      Solo laborables
+                    </button>
+                    <button type="button" onClick={() => setModoComputo("naturales")}
+                      className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                        (modoComputo === "naturales" || (modoComputo === "auto" && previewDias.tipo === "naturales"))
+                          ? "bg-[#4FAEB2] text-white"
+                          : "text-slate-600 hover:bg-slate-50"
+                      }`}>
+                      Naturales (con fines de semana)
+                    </button>
+                  </div>
+                </div>
+                <span className="text-xs text-slate-600">
+                  Días: <strong>{previewDias.dias}</strong> {previewDias.tipo === "laborables" ? "laborables" : "naturales"}
+                  <span className="text-slate-400"> · Compara: {previewDias.laborables} laborables / {previewDias.naturales} naturales</span>
+                </span>
+                <span className="text-[11px] text-slate-400">
+                  Referencia España (convenio general): 22 laborables ≈ 30 naturales al año.
+                </span>
+              </div>
             )}
             <button type="submit" disabled={saving}
               className="rounded-lg bg-[#4FAEB2] px-3 py-2 text-sm font-medium text-white disabled:opacity-50 ml-auto">

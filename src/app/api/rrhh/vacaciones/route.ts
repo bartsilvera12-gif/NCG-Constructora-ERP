@@ -81,16 +81,19 @@ export async function POST(request: NextRequest) {
     }
     if (hasta < desde) return NextResponse.json(errorResponse("fecha_hasta debe ser >= fecha_desde"), { status: 400 });
 
-    // Leer política para tipo de cómputo.
+    // Leer política para tipo de cómputo y flag de aprobación.
     const polQ = await ctx.supabase
       .from("rrhh_politica_vacaciones")
       .select("tipo_computo, requiere_aprobacion")
       .eq("empresa_id", ctx.auth.empresa_id)
       .maybeSingle();
+    const forzarComputo = String(body.forzar_computo ?? "").trim();
     const tipoComputo: "naturales" | "laborables" =
-      (polQ.data as { tipo_computo?: string } | null)?.tipo_computo === "laborables"
-        ? "laborables"
-        : "naturales";
+      forzarComputo === "laborables" || forzarComputo === "naturales"
+        ? (forzarComputo as "laborables" | "naturales")
+        : (polQ.data as { tipo_computo?: string } | null)?.tipo_computo === "laborables"
+          ? "laborables"
+          : "naturales";
     const requiereAprob = (polQ.data as { requiere_aprobacion?: boolean } | null)?.requiere_aprobacion !== false;
 
     const dias = calcularDias(desde, hasta, tipoComputo);

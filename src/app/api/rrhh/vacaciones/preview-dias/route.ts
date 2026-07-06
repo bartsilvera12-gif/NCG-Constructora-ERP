@@ -22,17 +22,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(successResponse({ dias: 0, tipo_computo: "naturales" }));
     }
 
-    const polQ = await ctx.supabase
-      .from("rrhh_politica_vacaciones")
-      .select("tipo_computo")
-      .eq("empresa_id", ctx.auth.empresa_id)
-      .maybeSingle();
-    const tipo: "naturales" | "laborables" =
-      (polQ.data as { tipo_computo?: string } | null)?.tipo_computo === "laborables"
-        ? "laborables"
-        : "naturales";
+    const forzar = sp.get("forzar");
+    let tipo: "naturales" | "laborables";
+    if (forzar === "laborables" || forzar === "naturales") {
+      tipo = forzar;
+    } else {
+      const polQ = await ctx.supabase
+        .from("rrhh_politica_vacaciones")
+        .select("tipo_computo")
+        .eq("empresa_id", ctx.auth.empresa_id)
+        .maybeSingle();
+      tipo =
+        (polQ.data as { tipo_computo?: string } | null)?.tipo_computo === "laborables"
+          ? "laborables"
+          : "naturales";
+    }
     const dias = calcularDias(desde, hasta, tipo);
-    return NextResponse.json(successResponse({ dias, tipo_computo: tipo }));
+    const dias_naturales = calcularDias(desde, hasta, "naturales");
+    const dias_laborables = calcularDias(desde, hasta, "laborables");
+    return NextResponse.json(successResponse({ dias, tipo_computo: tipo, dias_naturales, dias_laborables }));
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Error";
     return NextResponse.json(errorResponse(msg), { status: 500 });
