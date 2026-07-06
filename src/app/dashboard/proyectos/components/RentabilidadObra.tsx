@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
 
@@ -122,12 +121,22 @@ export default function RentabilidadObra({ projectId }: { projectId: string }) {
               hint={`${data.cantidades.movimientos} salida(s)`}
               value={data.costo_materiales}
               extra={
-                <Link
+                <a
                   href={`/control-obra/${projectId}#materiales`}
+                  onClick={(e) => {
+                    // Si ya estamos en /control-obra/[id], evitamos recargar la
+                    // página: cambiamos el hash y disparamos hashchange para que
+                    // el listener del tab lo tome. Fuera de ahí, dejamos navegar.
+                    if (typeof window !== "undefined" && window.location.pathname === `/control-obra/${projectId}`) {
+                      e.preventDefault();
+                      window.location.hash = "materiales";
+                      window.dispatchEvent(new HashChangeEvent("hashchange"));
+                    }
+                  }}
                   className="text-[11px] font-medium text-[#4FAEB2] hover:underline"
                 >
                   Ver detalle de materiales →
-                </Link>
+                </a>
               }
             />
             <Row
