@@ -54,6 +54,21 @@ const BG_FERIADO: RGB = rgb(1.0, 0.97, 0.85);  // amarillo claro
 const BG_AUSENCIA: RGB = rgb(1.0, 0.92, 0.92); // rojo muy claro
 const BG_FERIADO_TRABAJADO: RGB = rgb(1.0, 0.9, 0.75); // naranja claro (feriado + trabajó = extra)
 const BG_SIN_MARCA: RGB = rgb(0.96, 0.96, 0.97); // gris muy tenue (día sin fichaje)
+const BG_FINDE: RGB = rgb(0.9, 0.94, 1.0);       // azul muy suave (sábado/domingo)
+const BG_FINDE_TRABAJADO: RGB = rgb(0.83, 0.9, 1.0); // azul un poco más fuerte
+
+function diaSemana(iso: string): number {
+  // 0 domingo, 6 sábado. Uso UTC para evitar timezones locales del server.
+  return new Date(`${iso}T00:00:00Z`).getUTCDay();
+}
+function nombreDia(iso: string): string {
+  const d = diaSemana(iso);
+  return ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"][d];
+}
+function esFinde(iso: string): boolean {
+  const d = diaSemana(iso);
+  return d === 0 || d === 6;
+}
 
 function fmtFecha(iso: string | null): string {
   if (!iso) return "—";
@@ -178,6 +193,7 @@ export async function buildMarcacionesPdf(
     const ausencia = ausenciaEnFecha(r.fecha, r.empleado_id ?? null);
     let bg: RGB | null = null;
     let tag = "";
+    const finde = esFinde(r.fecha);
     if (nombreFeriado) {
       if (h > 0) {
         bg = BG_FERIADO_TRABAJADO;
@@ -190,9 +206,12 @@ export async function buildMarcacionesPdf(
     } else if (ausencia) {
       bg = BG_AUSENCIA;
       tag = AUSENCIA_LABEL[ausencia.tipo] + (ausencia.observacion ? `: ${ausencia.observacion}` : "");
+    } else if (finde) {
+      // Sábado o domingo. Si trabajó, indicamos "trabajado".
+      bg = h > 0 ? BG_FINDE_TRABAJADO : BG_FINDE;
+      tag = h > 0 ? `${nombreDia(r.fecha)} (trabajado)` : nombreDia(r.fecha);
     } else if (h === 0 && !r.hora_entrada && !r.hora_salida) {
-      // Día expandido sin fichaje y sin ausencia — solo aplica cuando el
-      // reporte se filtra por empleado.
+      // Día laborable sin fichaje.
       bg = BG_SIN_MARCA;
       tag = "Sin marcación";
     }
