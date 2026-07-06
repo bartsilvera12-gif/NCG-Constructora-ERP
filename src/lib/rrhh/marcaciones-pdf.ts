@@ -53,6 +53,7 @@ const FILL: RGB = rgb(0.95, 0.97, 0.97);
 const BG_FERIADO: RGB = rgb(1.0, 0.97, 0.85);  // amarillo claro
 const BG_AUSENCIA: RGB = rgb(1.0, 0.92, 0.92); // rojo muy claro
 const BG_FERIADO_TRABAJADO: RGB = rgb(1.0, 0.9, 0.75); // naranja claro (feriado + trabajó = extra)
+const BG_SIN_MARCA: RGB = rgb(0.96, 0.96, 0.97); // gris muy tenue (día sin fichaje)
 
 function fmtFecha(iso: string | null): string {
   if (!iso) return "—";
@@ -189,6 +190,11 @@ export async function buildMarcacionesPdf(
     } else if (ausencia) {
       bg = BG_AUSENCIA;
       tag = AUSENCIA_LABEL[ausencia.tipo] + (ausencia.observacion ? `: ${ausencia.observacion}` : "");
+    } else if (h === 0 && !r.hora_entrada && !r.hora_salida) {
+      // Día expandido sin fichaje y sin ausencia — solo aplica cuando el
+      // reporte se filtra por empleado.
+      bg = BG_SIN_MARCA;
+      tag = "Sin marcación";
     }
     if (bg) {
       ctx.page.drawRectangle({ x: MARGIN, y: ctx.y - 14, width: A4_W - MARGIN * 2, height: 14, color: bg });

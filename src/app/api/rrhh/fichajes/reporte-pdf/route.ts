@@ -184,18 +184,22 @@ function expandirFilasPorDia(opts: {
   const tieneAusenciaEnFecha = (empId: string, fecha: string) =>
     ausencias.some((a) => a.empleado_id === empId && a.fecha_desde <= fecha && a.fecha_hasta >= fecha);
 
-  // Recorto el rango hasta el último día con actividad (último fichaje o ausencia
-  // que termine en el rango). Si no hay actividad, uso hasta.
-  const ultimaFecha = (() => {
-    let last = desde;
-    for (const f of fichajes) if (f.fecha > last && f.fecha <= hasta) last = f.fecha;
-    for (const a of ausencias) {
-      const fin = a.fecha_hasta > hasta ? hasta : a.fecha_hasta;
-      if (fin > last && fin >= desde) last = fin;
-    }
-    for (const fr of feriados) if (fr.fecha > last && fr.fecha <= hasta) last = fr.fecha;
-    return last;
-  })();
+  // Si hay filtro de empleado, expandimos TODO el rango (incluye días sin
+  // marcación para que se noten los faltantes). Sin filtro, cortamos en el
+  // último día con actividad para no listar 30 días × N empleados vacíos.
+  const conFiltroEmpleado = !!empleadoIdFiltro;
+  const ultimaFecha = conFiltroEmpleado
+    ? hasta
+    : (() => {
+        let last = desde;
+        for (const f of fichajes) if (f.fecha > last && f.fecha <= hasta) last = f.fecha;
+        for (const a of ausencias) {
+          const fin = a.fecha_hasta > hasta ? hasta : a.fecha_hasta;
+          if (fin > last && fin >= desde) last = fin;
+        }
+        for (const fr of feriados) if (fr.fecha > last && fr.fecha <= hasta) last = fr.fecha;
+        return last;
+      })();
 
   const dias = iterarDias(desde, ultimaFecha);
   const filas: MarcacionRow[] = [];
@@ -208,11 +212,11 @@ function expandirFilasPorDia(opts: {
         filas.push(fichaje);
         continue;
       }
-      // No hay fichaje. Emitimos fila SOLO si es feriado o el empleado tiene ausencia
-      // ese día, así los días laborables normales sin fichaje no ensucian el reporte.
+      // Sin fichaje. Con filtro de empleado emitimos siempre (para ver faltantes).
+      // Sin filtro, solo si es feriado o el empleado tiene ausencia.
       const esFeriado = feriadoSet.has(fecha);
       const tieneAusencia = tieneAusenciaEnFecha(empId, fecha);
-      if (esFeriado || tieneAusencia) {
+      if (conFiltroEmpleado || esFeriado || tieneAusencia) {
         filas.push({
           fecha,
           empleado_id: empId,
