@@ -142,6 +142,16 @@ export default function ConfiguracionPage() {
           </li>
           <li>
             <SettingsModuleCard
+              title="Contabilidad"
+              subtitle="EMPRESA · ASIENTOS"
+              description="Sembrar plan de cuentas ES y generar asientos históricos desde ventas / compras / gastos. Alimenta el Libro Diario y el Libro Mayor."
+              icon={FileText}
+              badge={editorBadge}
+              href="/configuracion/contable"
+            />
+          </li>
+          <li>
+            <SettingsModuleCard
               title="Entidades bancarias"
               subtitle="GLOBAL · CONCILIACIÓN"
               description="Registrá bancos, financieras y billeteras con su código de pago. Se autocompletan al cobrar por transferencia o tarjeta."
