@@ -3,6 +3,8 @@
 import { useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import PlanCuentasSection from "./PlanCuentasSection";
+import MapeoSection from "./MapeoSection";
 
 type BackfillResult = {
   ventas: { ok: number; error: number; mensajes: string[] };
@@ -40,7 +42,7 @@ export default function ContableAdminPage() {
   }
 
   return (
-    <div className="p-6 max-w-4xl space-y-6">
+    <div className="p-6 max-w-5xl space-y-6">
       <PageHeader
         eyebrow="NCG · Configuración"
         title="Contabilidad — Administración"
@@ -89,6 +91,9 @@ export default function ContableAdminPage() {
           </button>
         </div>
       </section>
+
+      <PlanCuentasSection />
+      <MapeoSection />
 
       {backfillRes && (
         <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
