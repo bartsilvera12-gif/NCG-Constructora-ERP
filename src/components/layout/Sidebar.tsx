@@ -132,7 +132,6 @@ const MENU_STRUCTURE: MenuItem[] = [
   { key: "gastos",           slug: "gastos",        label: "Gastos",           href: "/gastos",                 icon: Receipt },
   { key: "notas_credito",    slug: "notas_credito", label: "Notas de crédito", href: "/notas-credito",          icon: ScrollText },
   { key: "reportes",         slug: "reportes",      label: "Reportes",         href: "/reportes",               icon: BarChart3 },
-  { key: "panel_financiero", slug: "contabilidad",  label: "Panel financiero", href: "/finanzas",               icon: BarChart3 },
 
   { key: "rrhh",             slug: "rrhh",          label: "Recursos Humanos", href: "/rrhh",                   icon: Users },
 
