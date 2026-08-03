@@ -133,7 +133,13 @@ export async function createGasto(input: GastoInput): Promise<Gasto> {
     .single();
 
   if (error) throw new Error(error.message);
-  return mapRow(data as Record<string, unknown>);
+  const row = mapRow(data as Record<string, unknown>);
+  // Fire-and-forget: genera asiento contable si el motor está sembrado.
+  try {
+    const { asentarBackground } = await import("@/lib/contabilidad/asentar-client");
+    asentarBackground("gasto", row.id);
+  } catch { /* tolerante */ }
+  return row;
 }
 
 export async function updateGasto(id: string, input: Partial<GastoInput>): Promise<Gasto> {

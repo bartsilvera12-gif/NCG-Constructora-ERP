@@ -4,6 +4,7 @@ import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema"
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { API_ERRORS } from "@/lib/api/errors";
 import { listCompras, insertCompraMultiConImpacto } from "@/lib/compras/server/compras-pg";
+import { asentarBackgroundServer } from "@/lib/contabilidad/asentar-server";
 import type { CompraItemInput } from "@/lib/compras/server/compras-pg";
 import { getPais, rateOf, calcularMontos } from "@/lib/iva/config";
 
@@ -143,6 +144,10 @@ export async function POST(request: NextRequest) {
         almacen_destino: almacen,
         proyecto_id: proyectoId,
       });
+
+      // Fire-and-forget: genera asiento contable si el motor está sembrado.
+      const compraId = (out.compra as { id?: string } | null)?.id;
+      if (compraId) asentarBackgroundServer(ctx.supabase, empresaId, "compra", compraId);
 
       return NextResponse.json(successResponse({
         compra: out.compra,

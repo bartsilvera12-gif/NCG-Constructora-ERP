@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserAndEmpresa } from "@/lib/middleware/auth";
 import { fetchDataSchemaForEmpresaId } from "@/lib/supabase/empresa-data-schema";
 import { createVentaTransaccionalPg } from "@/lib/ventas/server/create-venta-pg";
+import { asentarBackgroundServer } from "@/lib/contabilidad/asentar-server";
+import { createServiceRoleClientForEmpresa } from "@/lib/supabase/empresa-data-schema";
 import type { CreateVentaItemInput } from "@/lib/ventas/server/create-venta-pg";
 import { insertVentaPagoDetalle, type PagoDetalleInput } from "@/lib/ventas/server/pago-detalle-pg";
 import { successResponse, errorResponse } from "@/lib/api/response";
@@ -368,6 +370,14 @@ export async function POST(request: NextRequest) {
       monto_iva: iv,
       total: tot,
     });
+
+    // Fire-and-forget: genera asiento contable si el motor está sembrado.
+    try {
+      const sb = await createServiceRoleClientForEmpresa(auth.empresa_id);
+      asentarBackgroundServer(sb, auth.empresa_id, "venta", ventaId);
+    } catch (e) {
+      console.warn("[asentar venta] no se pudo crear el client", e);
+    }
 
     return NextResponse.json(successResponse({ venta }));
   } catch (err) {
