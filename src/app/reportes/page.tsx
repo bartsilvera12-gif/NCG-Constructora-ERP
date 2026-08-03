@@ -2,7 +2,7 @@
 
 import PageHeader from "@/components/ui/PageHeader";
 import { ReportCard } from "@/components/reportes/ReportCard";
-import { Wallet, ShoppingCart, Package, Truck, ArrowLeftRight, TrendingUp, AlertTriangle, Hammer } from "lucide-react";
+import { Wallet, ShoppingCart, Package, Truck, ArrowLeftRight, TrendingUp, AlertTriangle, Hammer, BookOpen, BookText, BookMarked, Layers } from "lucide-react";
 
 /** Hub de reportería operativa: cards estilo Configuración Global. */
 export default function ReportesPage() {
@@ -15,6 +15,42 @@ export default function ReportesPage() {
       />
 
       <ul className="m-0 grid list-none gap-4 p-0 sm:grid-cols-2 xl:grid-cols-3">
+        <li>
+          <ReportCard
+            title="Libro de Compras"
+            subtitle="Contabilidad"
+            icon={BookOpen}
+            description="Registro fiscal unificado de compras y gastos con desglose IVA (4/10/21%) y totales. Exportable a Excel."
+            href="/reportes/libro-compras"
+          />
+        </li>
+        <li>
+          <ReportCard
+            title="Libro de Ventas"
+            subtitle="Contabilidad"
+            icon={BookMarked}
+            description="Registro fiscal de ventas: base imponible por tipo de IVA (4/10/21%), exento, IVA repercutido y totales."
+            href="/reportes/libro-ventas"
+          />
+        </li>
+        <li>
+          <ReportCard
+            title="Libro Diario"
+            subtitle="Contabilidad"
+            icon={BookText}
+            description="Registro cronológico de los asientos contables generados por ventas, compras y gastos con cuentas, debe y haber."
+            href="/reportes/libro-diario"
+          />
+        </li>
+        <li>
+          <ReportCard
+            title="Libro Mayor"
+            subtitle="Contabilidad"
+            icon={Layers}
+            description="Movimientos y saldos acumulados por cuenta contable, con saldo inicial, debe, haber y trazabilidad."
+            href="/reportes/libro-mayor"
+          />
+        </li>
         <li>
           <ReportCard
             title="Rentabilidad por obra"

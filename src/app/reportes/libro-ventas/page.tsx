@@ -1,0 +1,107 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import PageHeader from "@/components/ui/PageHeader";
+import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
+import { FiltrosFecha, firstOfMonth, todayIso, formatEur } from "@/components/reportes/FiltrosFecha";
+
+type Row = {
+  id: string; fecha: string; numero: string;
+  cliente_nombre: string; cliente_nif: string | null;
+  base_iva_4: number; base_iva_10: number; base_iva_21: number; base_exento: number;
+  iva_4: number; iva_10: number; iva_21: number; total: number;
+};
+type Totals = Omit<Row, "id" | "fecha" | "numero" | "cliente_nombre" | "cliente_nif">;
+
+export default function LibroVentasPage() {
+  const [desde, setDesde] = useState(firstOfMonth());
+  const [hasta, setHasta] = useState(todayIso());
+  const [rows, setRows] = useState<Row[]>([]);
+  const [totals, setTotals] = useState<Totals | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const cargar = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetchWithSupabaseSession(`/api/reportes/libro-ventas?desde=${desde}&hasta=${hasta}`);
+      const j = await r.json();
+      if (j.success) { setRows(j.data?.rows ?? []); setTotals(j.data?.totals ?? null); }
+    } finally { setLoading(false); }
+  }, [desde, hasta]);
+
+  useEffect(() => { void cargar(); }, [cargar]);
+
+  return (
+    <div className="space-y-5">
+      <PageHeader
+        eyebrow="NCG · Contabilidad"
+        title="Libro de Ventas"
+        description="Registro fiscal de ventas: comprobantes, base imponible por tipo de IVA (4/10/21%), exento y totales."
+        backHref="/reportes"
+        backLabel="Reportes"
+      />
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <FiltrosFecha desde={desde} hasta={hasta} onChange={(v) => { if (v.desde !== undefined) setDesde(v.desde); if (v.hasta !== undefined) setHasta(v.hasta); }} />
+      </div>
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+              <tr>
+                <th className="px-3 py-2 text-left">Fecha</th>
+                <th className="px-3 py-2 text-left">Nº</th>
+                <th className="px-3 py-2 text-left">Cliente</th>
+                <th className="px-3 py-2 text-left">NIF</th>
+                <th className="px-3 py-2 text-right">Base 4%</th>
+                <th className="px-3 py-2 text-right">Base 10%</th>
+                <th className="px-3 py-2 text-right">Base 21%</th>
+                <th className="px-3 py-2 text-right">Exento</th>
+                <th className="px-3 py-2 text-right">IVA 4%</th>
+                <th className="px-3 py-2 text-right">IVA 10%</th>
+                <th className="px-3 py-2 text-right">IVA 21%</th>
+                <th className="px-3 py-2 text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading ? (
+                <tr><td colSpan={12} className="py-8 text-center text-slate-400 text-sm">Cargando…</td></tr>
+              ) : rows.length === 0 ? (
+                <tr><td colSpan={12} className="py-8 text-center text-slate-400 text-sm">Sin ventas en el rango.</td></tr>
+              ) : rows.map((r) => (
+                <tr key={r.id} className="hover:bg-slate-50">
+                  <td className="px-3 py-2 tabular-nums">{r.fecha}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{r.numero}</td>
+                  <td className="px-3 py-2">{r.cliente_nombre}</td>
+                  <td className="px-3 py-2 text-slate-500 text-xs">{r.cliente_nif ?? "—"}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{r.base_iva_4 ? formatEur(r.base_iva_4) : ""}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{r.base_iva_10 ? formatEur(r.base_iva_10) : ""}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{r.base_iva_21 ? formatEur(r.base_iva_21) : ""}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{r.base_exento ? formatEur(r.base_exento) : ""}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-slate-500">{r.iva_4 ? formatEur(r.iva_4) : ""}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-slate-500">{r.iva_10 ? formatEur(r.iva_10) : ""}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-slate-500">{r.iva_21 ? formatEur(r.iva_21) : ""}</td>
+                  <td className="px-3 py-2 text-right font-semibold tabular-nums">{formatEur(r.total)}</td>
+                </tr>
+              ))}
+            </tbody>
+            {totals && rows.length > 0 && (
+              <tfoot className="bg-[#E5F4F4] text-slate-800 font-semibold">
+                <tr>
+                  <td colSpan={4} className="px-3 py-2">TOTALES</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatEur(totals.base_iva_4)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatEur(totals.base_iva_10)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatEur(totals.base_iva_21)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatEur(totals.base_exento)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatEur(totals.iva_4)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatEur(totals.iva_10)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatEur(totals.iva_21)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatEur(totals.total)}</td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
