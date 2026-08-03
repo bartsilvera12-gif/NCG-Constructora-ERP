@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
-import { FiltrosFecha, firstOfMonth, todayIso, formatEur } from "@/components/reportes/FiltrosFecha";
+import { FiltrosFecha, firstOfMonth, todayIso, formatEur, DescargarExcelBtn } from "@/components/reportes/FiltrosFecha";
 
 type ResumenRow = { cuenta_id: string; codigo: string; nombre: string; tipo: string; saldo_inicial: number; debe_periodo: number; haber_periodo: number; saldo_final: number };
 type Movimiento = { fecha: string; numero: string; concepto: string; descripcion: string | null; debe: number; haber: number; saldo: number };
@@ -42,7 +42,7 @@ export default function LibroMayorPage() {
         backHref="/reportes"
         backLabel="Reportes"
       />
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 flex flex-wrap items-center justify-between gap-3">
         <FiltrosFecha desde={desde} hasta={hasta} onChange={(v) => { if (v.desde !== undefined) setDesde(v.desde); if (v.hasta !== undefined) setHasta(v.hasta); }}
           extra={cuentaSel && (
             <button type="button" onClick={() => setCuentaSel(null)} className="text-xs rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">
@@ -50,6 +50,7 @@ export default function LibroMayorPage() {
             </button>
           )}
         />
+        <DescargarExcelBtn href={`/api/reportes/libro-mayor/export?desde=${desde}&hasta=${hasta}${cuentaSel ? `&cuenta_id=${cuentaSel.id}` : ""}`} />
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">

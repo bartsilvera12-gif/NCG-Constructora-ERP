@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import { fetchWithSupabaseSession } from "@/lib/api/fetch-with-supabase-session";
-import { FiltrosFecha, firstOfMonth, todayIso, formatEur } from "@/components/reportes/FiltrosFecha";
+import { FiltrosFecha, firstOfMonth, todayIso, formatEur, DescargarExcelBtn } from "@/components/reportes/FiltrosFecha";
 
 type Row = {
   id: string; fecha: string; numero: string;
@@ -40,8 +40,9 @@ export default function LibroVentasPage() {
         backHref="/reportes"
         backLabel="Reportes"
       />
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 flex flex-wrap items-center justify-between gap-3">
         <FiltrosFecha desde={desde} hasta={hasta} onChange={(v) => { if (v.desde !== undefined) setDesde(v.desde); if (v.hasta !== undefined) setHasta(v.hasta); }} />
+        <DescargarExcelBtn href={`/api/reportes/libro-ventas/export?desde=${desde}&hasta=${hasta}`} />
       </div>
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <div className="overflow-x-auto">
