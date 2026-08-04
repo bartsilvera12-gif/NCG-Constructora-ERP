@@ -21,11 +21,16 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 }
 
 const REGIMEN_FISCAL_OPTS = [
-  { value: "",                     label: "—" },
-  { value: "regimen_general",      label: "Régimen general" },
-  { value: "recargo_equivalencia", label: "Recargo de equivalencia" },
-  { value: "exento",               label: "Exento" },
-  { value: "otro",                 label: "Otro" },
+  { value: "",                          label: "—" },
+  { value: "regimen_general",           label: "Régimen general" },
+  { value: "recargo_equivalencia",      label: "Recargo de equivalencia" },
+  { value: "regimen_simplificado",      label: "Régimen simplificado (módulos)" },
+  { value: "exento_iva",                label: "Exento de IVA (art. 20 LIVA)" },
+  { value: "intracomunitario",          label: "Intracomunitario (NIF-IVA)" },
+  { value: "extracomunitario",          label: "Extracomunitario / exportación" },
+  { value: "inversion_sujeto_pasivo",   label: "Inversión del sujeto pasivo (ISP)" },
+  { value: "no_sujeto",                 label: "No sujeto" },
+  { value: "otro",                      label: "Otro" },
 ];
 const FORMA_PAGO_OPTS = [
   { value: "",              label: "—" },
