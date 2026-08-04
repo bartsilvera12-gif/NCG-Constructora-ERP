@@ -73,17 +73,26 @@ async function apiPut<T>(path: string, data: Record<string, unknown>): Promise<{
 
 export async function apiCreateCliente(data: {
   tipo_cliente?: string;
-  tipo_servicio_cliente?: string;
-  empresa?: string;
+  tipo_servicio_cliente?: string | null;
+  empresa?: string | null;
   nombre_contacto: string;
-  ruc?: string;
-  documento?: string;
-  telefono?: string;
-  email?: string;
-  direccion?: string;
-  ciudad?: string;
-  provincia?: string;
-  pais?: string;
+  ruc?: string | null;
+  documento?: string | null;
+  telefono?: string | null;
+  email?: string | null;
+  direccion?: string | null;
+  ciudad?: string | null;
+  provincia?: string | null;
+  pais?: string | null;
+  codigo_postal?: string | null;
+  contacto_persona?: string | null;
+  fecha_alta?: string | null;
+  fecha_baja?: string | null;
+  regimen_fiscal?: string | null;
+  forma_pago?: string | null;
+  iban?: string | null;
+  bic_swift?: string | null;
+  origen?: string;
   condicion_pago?: string;
   moneda_preferida?: string;
   estado?: string;
