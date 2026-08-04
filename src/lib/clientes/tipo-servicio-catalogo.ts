@@ -17,13 +17,13 @@ export interface ClienteTipoServicioRow {
 /** Slugs fijos del catálogo NCG. */
 export const SLUGS_TIPOS_CLIENTE_SISTEMA = [
   "construccion",
-  "transporte_mantenimiento",
+  "transporte-mantenimiento",
 ] as const;
 export type SlugTipoClienteSistema = (typeof SLUGS_TIPOS_CLIENTE_SISTEMA)[number];
 
 export const LABEL_FALLBACK_POR_SLUG: Record<SlugTipoClienteSistema, string> = {
-  construccion:             "Construcción",
-  transporte_mantenimiento: "Transporte y mantenimiento",
+  "construccion":             "Construcción",
+  "transporte-mantenimiento": "Transporte y mantenimiento",
 };
 
 const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -83,7 +83,7 @@ export function normalizeSlug(s: string): string {
 
 const SEED_ROWS: { slug: SlugTipoClienteSistema; nombre: string; orden: number }[] = [
   { slug: "construccion",             nombre: "Construcción",              orden: 10 },
-  { slug: "transporte_mantenimiento", nombre: "Transporte y mantenimiento", orden: 20 },
+  { slug: "transporte-mantenimiento", nombre: "Transporte y mantenimiento", orden: 20 },
 ];
 
 const SLUGS_SISTEMA_LIST = SEED_ROWS.map((r) => r.slug) as string[];

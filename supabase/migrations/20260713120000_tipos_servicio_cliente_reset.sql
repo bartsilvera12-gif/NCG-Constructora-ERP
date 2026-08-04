@@ -13,7 +13,7 @@ ON CONFLICT (empresa_id, slug) DO UPDATE
   SET nombre = EXCLUDED.nombre, activo = true, es_sistema = true, orden = EXCLUDED.orden;
 
 INSERT INTO ncgconstructora.cliente_tipos_servicio_catalogo (empresa_id, slug, nombre, activo, es_sistema, orden)
-SELECT DISTINCT empresa_id, 'transporte_mantenimiento', 'Transporte y mantenimiento', true, true, 20
+SELECT DISTINCT empresa_id, 'transporte-mantenimiento', 'Transporte y mantenimiento', true, true, 20
 FROM ncgconstructora.cliente_tipos_servicio_catalogo
 ON CONFLICT (empresa_id, slug) DO UPDATE
   SET nombre = EXCLUDED.nombre, activo = true, es_sistema = true, orden = EXCLUDED.orden;
@@ -21,4 +21,4 @@ ON CONFLICT (empresa_id, slug) DO UPDATE
 -- Desactiva todo lo demás (mantiene la fila para no romper FKs desde clientes).
 UPDATE ncgconstructora.cliente_tipos_servicio_catalogo
 SET activo = false, es_sistema = false
-WHERE slug NOT IN ('construccion', 'transporte_mantenimiento');
+WHERE slug NOT IN ('construccion', 'transporte-mantenimiento');
