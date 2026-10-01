@@ -19,9 +19,9 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
 
-  // NOTA: NO usamos output: "standalone" porque Coolify+Nixpacks corre
-  // `next start` con .next/ regular, no usa .next/standalone/. Si en el futuro
-  // hacemos un Dockerfile custom para reducir imagen, agregar standalone ahi.
+  // Salida standalone para el Dockerfile (node server.js): la imagen solo lleva el
+  // subconjunto de node_modules que Next rastreó → mucha menos RAM que `next start`.
+  output: "standalone",
 
   experimental: {
     // Tree-shake agresivo para barrels grandes. Cuando importas
